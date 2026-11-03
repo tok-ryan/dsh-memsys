@@ -1,105 +1,47 @@
 /**
  * Host side of the optional Web UI (sidebar panel + settings section).
  *
- * Everything here is read-only over SQLite plus one small JSON file holding the
- * `auto_inject` override written by the settings switch. Both routes enforce
- * loopback + same-origin before touching data; nothing here is model-facing.
+ * Read-only over SQLite, plus the module switches read through `ui-config.mjs`
+ * (the same source the host gates use). Both routes enforce loopback +
+ * same-origin before touching data; nothing here is model-facing.
  */
-import fs from 'node:fs';
-import path from 'node:path';
+import {
+  DEFAULT_MODULES,
+  MODULE_KEYS,
+  readUiConfig,
+  resolveModulesDetail,
+  writeUiConfig,
+} from './ui-config.mjs';
 
-const UI_CONFIG_FILE = 'ui-config.json';
-const UI_CONFIG_VERSION = 1;
 const RECENT_LIMIT = 5;
 const TEXT_LIMIT = 80;
 const BODY_LIMIT = 4096;
 
-const warn = (logger, message) => {
-  try {
-    logger?.warn?.(`[dsh-memsys] ${message}`);
-  } catch {
-    // a logger that throws must never break boot
-  }
-};
-
-/**
- * Read the settings file written by the Web switch.
- * Returns `{ auto_inject }` or `null` when absent. A corrupt or foreign-version
- * file is ignored with one warning: a bad file must never stop the plugin.
- */
-export function readUiConfig(dataDir, logger = console) {
-  if (!dataDir) return null;
-  const file = path.join(dataDir, UI_CONFIG_FILE);
-  let raw = null;
-  try {
-    if (!fs.existsSync(file)) return null;
-    raw = fs.readFileSync(file, 'utf8');
-  } catch (err) {
-    warn(logger, `ui-config 读取失败（${err?.message ?? err}），回落 profile 配置`);
-    return null;
-  }
-  let parsed = null;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    warn(logger, 'ui-config 不是合法 JSON，回落 profile 配置');
-    return null;
-  }
-  if (parsed?.version !== UI_CONFIG_VERSION) {
-    warn(logger, `ui-config 版本不符（${parsed?.version ?? 'none'}，期望 ${UI_CONFIG_VERSION}），已忽略`);
-    return null;
-  }
-  if (typeof parsed?.auto_inject !== 'boolean') {
-    warn(logger, 'ui-config 缺少 auto_inject 布尔值，已忽略');
-    return null;
-  }
-  return { auto_inject: parsed.auto_inject };
-}
-
-/**
- * Priority: ui-config.json (when present and valid) > profile patch value > false.
- * The reported `source` is what the Web page shows next to the switch.
- */
-export function resolveAutoInject({ dataDir = null, profileValue = undefined, logger = console } = {}) {
-  const stored = readUiConfig(dataDir, logger);
-  if (stored !== null) return { value: stored.auto_inject, source: 'ui-config' };
-  if (typeof profileValue === 'boolean') return { value: profileValue, source: 'profile' };
-  return { value: false, source: 'default' };
-}
-
-/** Write-through with a temp file so a crash never leaves half a config. */
-export function writeUiConfig(dataDir, autoInject) {
-  if (!dataDir) return false;
-  fs.mkdirSync(dataDir, { recursive: true });
-  const target = path.join(dataDir, UI_CONFIG_FILE);
-  const temp = `${target}.tmp`;
-  fs.writeFileSync(
-    temp,
-    JSON.stringify({ version: UI_CONFIG_VERSION, auto_inject: autoInject === true }, null, 2),
-    'utf8',
-  );
-  fs.renameSync(temp, target);
-  return true;
-}
-
 const truncate = (text) => Array.from(String(text ?? '')).slice(0, TEXT_LIMIT).join('');
 
-/** Three counts plus the five latest memories; `candidates` means still-open ones. */
-export function buildSummary(main, { dataDir = null, autoInject = false, autoInjectSource = 'default' } = {}) {
+/** Three counts, the five latest memories, and the effective module map. */
+export function buildSummary(
+  main,
+  { dataDir = null, modules = DEFAULT_MODULES, modulesSource = 'default', autoInject = undefined } = {},
+) {
   const db = typeof main === 'function' ? main() : main;
   const one = (sql, ...params) => Number(db.prepare(sql).get(...params)?.n ?? 0);
   const recent = db
     .prepare('SELECT id, text FROM memories ORDER BY recorded_at DESC, id DESC LIMIT ?')
     .all(RECENT_LIMIT)
     .map((row) => ({ id: row.id, text: truncate(row.text) }));
+  const effective = {};
+  for (const key of MODULE_KEYS) effective[key] = modules?.[key] !== false;
   return {
     memories: one('SELECT COUNT(*) AS n FROM memories'),
     candidates: one("SELECT COUNT(*) AS n FROM candidates WHERE status IN ('pending', 'conflicted')"),
     pending_due: one("SELECT COUNT(*) AS n FROM memories WHERE due_state = 'pending-due'"),
     recent,
     data_dir: dataDir,
-    auto_inject: autoInject === true,
-    auto_inject_source: autoInjectSource,
+    auto_inject: autoInject === undefined ? effective.context : autoInject === true,
+    auto_inject_source: modulesSource,
+    modules: effective,
+    modules_source: modulesSource,
   };
 }
 
@@ -128,14 +70,24 @@ export function sameOrigin(req) {
 export function createSummaryHandler({
   main,
   dataDir = null,
-  getAutoInject = () => false,
-  onAutoInject = null,
+  getConfig = () => ({ modules: DEFAULT_MODULES, source: 'default' }),
+  onConfig = null,
 } = {}) {
   const send = (res, status, payload) => {
     res.statusCode = status;
     res.setHeader('content-type', 'application/json');
     res.setHeader('cache-control', 'no-store');
     res.end(JSON.stringify(payload));
+  };
+
+  const snapshot = () => {
+    const current = getConfig() ?? {};
+    const modules = current.modules ?? DEFAULT_MODULES;
+    return {
+      modules,
+      source: current.source ?? 'default',
+      auto_inject: modules?.context !== false,
+    };
   };
 
   return (req, res) => {
@@ -168,13 +120,31 @@ export function createSummaryHandler({
           send(res, 400, { error: 'invalid_json' });
           return;
         }
-        if (typeof parsed?.auto_inject !== 'boolean') {
-          send(res, 400, { error: 'auto_inject_required' });
+        const wantsModules = parsed?.modules && typeof parsed.modules === 'object';
+        const wantsAutoInject = typeof parsed?.auto_inject === 'boolean';
+        if (!wantsModules && !wantsAutoInject) {
+          send(res, 400, { error: 'config_required' });
           return;
         }
+        if (wantsModules) {
+          const bad = Object.keys(parsed.modules).filter(
+            (key) => MODULE_KEYS.includes(key) && typeof parsed.modules[key] !== 'boolean',
+          );
+          if (bad.length > 0) {
+            send(res, 400, { error: 'module_value_not_boolean', keys: bad });
+            return;
+          }
+        }
         try {
-          onAutoInject?.(parsed.auto_inject);
-          send(res, 200, { ok: true, auto_inject: parsed.auto_inject, auto_inject_source: 'ui-config' });
+          const written = onConfig?.({ ...parsed }) ?? null;
+          const next = written ?? snapshot();
+          send(res, 200, {
+            ok: true,
+            auto_inject: next.auto_inject,
+            auto_inject_source: 'ui-config',
+            modules: next.modules,
+            modules_source: 'ui-config',
+          });
         } catch (err) {
           send(res, 500, { error: 'write_failed', message: String(err?.message ?? err) });
         }
@@ -186,12 +156,21 @@ export function createSummaryHandler({
       return;
     }
     try {
-      const current = getAutoInject();
-      const value = typeof current === 'boolean' ? current : current?.value === true;
-      const source = typeof current === 'boolean' ? 'ui-config' : (current?.source ?? 'default');
-      send(res, 200, buildSummary(main, { dataDir, autoInject: value, autoInjectSource: source }));
+      const state = snapshot();
+      send(
+        res,
+        200,
+        buildSummary(main, {
+          dataDir,
+          modules: state.modules,
+          modulesSource: state.source,
+          autoInject: state.auto_inject,
+        }),
+      );
     } catch (err) {
       send(res, 503, { error: 'summary_unavailable', message: String(err?.code ?? err?.message ?? err) });
     }
   };
 }
+
+export { readUiConfig, resolveModulesDetail, writeUiConfig };

@@ -1,3 +1,4 @@
+import { currentRevision } from '../storage/open.mjs';
 import { payloadHash } from '../identity.mjs';
 import {
   COMPRESSION_STEPS,
@@ -188,6 +189,7 @@ function compileRoundInner({
   project = null,
   sessionId = null,
   dream = null,
+  modules = null,
 }) {
   if (!tokenizer || H === null) {
     return Object.freeze({
@@ -206,11 +208,11 @@ function compileRoundInner({
     feedback: (item) => feedback(item.id),
   });
   const depsDream = dream;
-  const dueItems = orderPendingDue(selectPendingDue({ main, mode, now: clock.now() }));
+  const dueItems = modules?.due === false ? [] : orderPendingDue(selectPendingDue({ main, mode, now: clock.now() }));
   const dueLines = dueItems.map((item) => dueDirectoryLine(item, 80));
   const dueTypedIds = dueItems.map((item) => item.typed_id);
   const dreamSurface =
-    depsDream && dreamSurfaceEnabled(main)
+    modules?.dream !== false && depsDream && dreamSurfaceEnabled(main)
       ? surfaceDreams({ main, dream: depsDream, clock, mode, sessionId: sessionId ?? 'unknown-session', enabled: true, limit: 1 })
       : { enabled: false, items: [] };
   const dreamItems = dreamSurface.items ?? [];
@@ -248,7 +250,6 @@ function compileRoundInner({
   const typedIds = project && mode === 'work' ? [`project:${project.projectId}`] : [];
   const fixedText = buildFixedText({ clock, mode, project: mode === 'work' ? project : null });
   const snapshotId = `snap:${payloadHash({
-    roundId,
     mode,
     revision: selected.revision,
     policyRevision,
@@ -443,7 +444,7 @@ function compileRoundInner({
     roundId,
     mode,
     level,
-    sourceRevision: selected.revision,
+    sourceRevision: currentRevision(main),
     policyRevision,
     sectionText: chosen.sectionText,
     sectionHash,
@@ -469,7 +470,7 @@ function compileRoundInner({
     mode: 'auto',
     snapshot_revision: snapshotId,
     roundId,
-    source_revision: selected.revision,
+    source_revision: currentRevision(main),
     policy_revision: policyRevision,
     delivery_level: level,
     delivery: 'unknown',

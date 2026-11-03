@@ -76,7 +76,13 @@ test('P4/P4-B E10: receipts must match the persistent manifest and groups', (t) 
     receivedIds: expected,
     payloadHash,
   });
-  assert.equal(full.delivery, 'confirmed', JSON.stringify(full));
+  if (compiled.manifest.actual_ids.filter((id) => id.startsWith('mem_')).length === 0) {
+    // Design §6.2c: an empty actual set can never be confirmed, even if the receipt equals it.
+    assert.equal(full.delivery, 'incomplete', JSON.stringify(full));
+    assert.equal(full.code, 'receipt_incomplete');
+  } else {
+    assert.equal(full.delivery, 'confirmed', JSON.stringify(full));
+  }
   const exposure = ctx.main.prepare('SELECT memory_id FROM injections').all().map((row) => row.memory_id);
   assert.equal(exposure.length, 0, 'deferred members must not produce exposure');
 });

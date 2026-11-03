@@ -12,33 +12,45 @@ import { createFeedHandler } from './src/tools/feed.mjs';
 import { createSelfHandler } from './src/tools/self.mjs';
 import { createRecordHandler } from './src/tools/record.mjs';
 import { runtimeFromExec } from './src/runtime/identity.mjs';
-import { createSummaryHandler, resolveAutoInject, writeUiConfig } from './src/runtime/summary.mjs';
+import { createSummaryHandler } from './src/runtime/summary.mjs';
+import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime/ui-config.mjs';
+import { createRoundInjector } from './src/runtime/inject-round.mjs';
+import { compileRound } from './src/context/compile.mjs';
 
 export const name = 'dsh-memsys';
 /** tools is a real host service; static inject is the verified registration path. */
 export const inject = ['tools'];
 
 /**
- * `auto_inject` has three ranks, highest first:
- *   1. `<data_dir>/ui-config.json` — written by the settings switch;
- *   2. the profile patch config (`config.auto_inject`);
- *   3. `false`.
+ * Module switches have three ranks, highest first:
+ *   1. `<data_dir>/ui-config.json` — written by the settings page;
+ *   2. the profile patch config (`auto_inject` / `modules`), which is itself a
+ *      per-key overlay on the default map;
+ *   3. every module on.
  * The file wins so a toggle survives a restart without rewriting the profile,
- * and the in-memory value is applied immediately (no restart).
+ * and the in-memory map is applied immediately (no restart).
  */
 function createUiState(config = {}, logger = console) {
   const dataDir = config.data_dir ?? process.env.MEMSYS_DATA_DIR ?? null;
-  let state = resolveAutoInject({ dataDir, profileValue: config.auto_inject, logger });
+  const detail = resolveModulesDetail({ dataDir, profileConfig: config, logger });
+  // One stable object: host tools capture it at registration, so a POST has to
+  // mutate it in place or the call-time gates would keep reading stale values.
+  const modules = { ...detail.modules };
+  let source = detail.source;
   return {
     dataDir,
-    get autoInject() {
-      return state.value;
+    get modules() {
+      return modules;
     },
     get source() {
-      return state.source;
+      return source;
     },
-    set autoInject(value) {
-      state = { value: value === true, source: 'ui-config' };
+    get autoInject() {
+      return modules.context !== false;
+    },
+    apply(written) {
+      Object.assign(modules, written.modules);
+      source = 'ui-config';
     },
     sync: () => {},
   };
@@ -47,27 +59,32 @@ function createUiState(config = {}, logger = console) {
 function createHostHandlers(config = {}, ctx = null, ui = null) {
   const dataDir = config.data_dir ?? process.env.MEMSYS_DATA_DIR ?? null;
   const uiState = ui ?? {
-    get autoInject() {
-      return config.auto_inject === true;
+    get modules() {
+      return mergeModules(config, null);
     },
     get source() {
-      return typeof config.auto_inject === 'boolean' ? 'profile' : 'default';
+      return typeof config.auto_inject === 'boolean' || config.modules ? 'profile' : 'default';
     },
-    set autoInject(_value) {},
+    get autoInject() {
+      return mergeModules(config, null).context !== false;
+    },
+    apply() {},
     sync: () => {},
   };
   const uiSummary = createSummaryHandler({
     main: () => db().main,
     dataDir,
-    getAutoInject: () => ({ value: uiState.autoInject, source: uiState.source }),
-    onAutoInject: (next) => {
-      if (!writeUiConfig(dataDir, next)) {
+    getConfig: () => ({ modules: uiState.modules, source: uiState.source }),
+    onConfig: (patch) => {
+      if (!dataDir) {
         const err = new Error('data_dir_missing');
         err.code = 'data_dir_missing';
         throw err;
       }
-      uiState.autoInject = next;
+      const written = writeUiConfig(dataDir, patch);
+      uiState.apply(written);
       uiState.sync();
+      return { auto_inject: written.auto_inject, modules: written.modules };
     },
   });
   let handles = null;
@@ -148,7 +165,37 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
 export async function apply(ctx, config = {}) {
   const ui = createUiState(config);
   const handlers = createHostHandlers(config, ctx, ui);
-  const registration = await registerHostTools({ ctx, handlers });
+  const registration = await registerHostTools({ ctx, handlers, modules: ui.modules });
+
+  // The round injector owns the session/turn subscription; the section only
+  // reads its current text. Verified empirically: a section's `text` function is
+  // re-evaluated on every `systemPrompt.assemble()` (once per model step), so no
+  // per-turn re-mount is needed — a toggle only has to change what `current()` says.
+  let injector = null;
+  const syncInjector = () => {
+    if (ui.modules.context === false || !ui.dataDir) {
+      injector?.dispose?.();
+      injector = null;
+      return;
+    }
+    if (!injector) {
+      injector = createRoundInjector({
+        ctx,
+        dataDir: ui.dataDir,
+        modules: ui.modules,
+        compileRound,
+        tokenizer: config.tokenizer ?? null,
+        H: config.H ?? null,
+        mode: config.mode ?? 'work',
+      });
+      try {
+        injector.refresh({});
+      } catch {
+        // a failed first compile must not stop the host half from booting
+      }
+    }
+  };
+  syncInjector();
   const toolProbe = process.env.MEMSYS_TOOL_PROBE ?? null;
   const writeToolProbe = (deferred) => {
     if (!toolProbe) return;
@@ -319,18 +366,22 @@ export async function apply(ctx, config = {}) {
   const syncSection = () => {
     disposeSection();
     disposeSection = () => {};
-    if (!ui.autoInject && !diagnostic) return;
+    // The section is owned by the `context` module; the probe profile may force
+    // a diagnostic section even while injection is off.
+    if (ui.modules.context === false && !diagnostic) return;
     disposeSection = registerSection(ctx, {
       getText: () =>
-        ui.autoInject
-          ? '[memsys] 注入：tools-only（本批未取得宿主预算与回执，不作逐轮交付承诺）'
-          : '[memsys] diagnostic section（auto_inject=false）',
+        ui.modules.context === false
+          ? '[memsys] diagnostic section（context=false）'
+          : (injector?.current().text ?? ''),
+      dynamicText: true,
       diagnosticMarker: process.env.MEMSYS_SECTION_PROBE ?? null,
     });
   };
   // A profile without systemPrompt (headless/embedded) must still boot the tools.
   ui.sync = () => {
     try {
+      syncInjector();
       syncSection();
     } catch {
       // keep the host half alive; the section is optional
@@ -339,6 +390,7 @@ export async function apply(ctx, config = {}) {
   ui.sync();
   return () => {
     disposeSection();
+    injector?.dispose?.();
   };
 }
 

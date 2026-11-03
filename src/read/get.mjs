@@ -156,7 +156,7 @@ export function getMemories({
     return { status: 'error', code: 'validation_error', message: 'invalid_view', clock: reading };
   }
 
-  let state = { ids, index: 0, offset: 0, versions: null };
+  let state = { ids, index: 0, offset: 0, versions: null, evIndex: null, evOffset: 0 };
   if (cursor !== null) {
     const decoded = decodeGetCursor(cursor);
     if (!decoded || decoded.ids.join(',') !== ids.join(',')) {
@@ -166,7 +166,7 @@ export function getMemories({
     if (JSON.stringify(decoded.versions ?? {}) !== JSON.stringify(currentVersions)) {
       return { status: 'error', code: 'stale_cursor', clock: reading };
     }
-    state = { ids: decoded.ids, index: decoded.index, offset: decoded.offset, versions: decoded.versions };
+    state = { ids: decoded.ids, index: decoded.index, offset: decoded.offset, versions: decoded.versions, evIndex: decoded.evIndex ?? null, evOffset: decoded.evOffset ?? 0 };
   }
 
   const budget = clampChars(maxChars);
@@ -252,19 +252,70 @@ export function getMemories({
       history: view === 'history',
     });
     const text = formatted.text ?? '';
+    if (state.evIndex !== null) {
+      let left = budget - used;
+      const fragments = [];
+      let nextEv = null;
+      for (let e = state.evIndex; e < formatted.evidence.length; e += 1) {
+        const entry = formatted.evidence[e];
+        if (typeof entry.observation_text !== 'string' || entry.observation_text.length === 0) continue;
+        const chars = Array.from(entry.observation_text);
+        const start = e === state.evIndex ? state.evOffset : 0;
+        const take = Math.max(0, Math.min(chars.length - start, left));
+        if (take > 0) fragments.push({ ...entry, observation_text: chars.slice(start, start + take).join(''), observation_text_truncated: start + take < chars.length });
+        left -= take;
+        if (start + take < chars.length) {
+          nextEv = { evIndex: e, evOffset: start + take };
+          break;
+        }
+      }
+      items.push({ ...formatted, evidence: fragments });
+      used = budget - left;
+      if (nextEv === null) {
+        index += 1;
+        offset = 0;
+        state.evIndex = null;
+        state.evOffset = 0;
+        continue;
+      }
+      const nextCursor = encodeGetCursor({
+        ids, index, offset: 0, evIndex: nextEv.evIndex, evOffset: nextEv.evOffset,
+        versions: state.versions ?? versionMapOf(main, ids),
+      });
+      return { status: 'ok', items, missing_ids: missing, snapshot_revision: currentRevision(main), next_cursor: nextCursor, truncated: true, clock: reading };
+    }
     if (offset === 0 && used + codePoints(text) <= budget) {
       if (includeEvidence && Array.isArray(formatted.evidence)) {
         let left = budget - used - codePoints(text);
-        for (const entry of formatted.evidence) {
-          if (typeof entry.observation_text !== 'string' || entry.observation_text.length === 0) continue;
+        let nextEv = null;
+        const kept = [];
+        for (let e = 0; e < formatted.evidence.length; e += 1) {
+          const entry = formatted.evidence[e];
+          if (typeof entry.observation_text !== 'string' || entry.observation_text.length === 0) {
+            kept.push(entry);
+            continue;
+          }
           const chars = Array.from(entry.observation_text);
           if (chars.length <= left) {
             left -= chars.length;
+            kept.push(entry);
             continue;
           }
-          entry.observation_text = chars.slice(0, Math.max(0, left)).join('');
-          entry.observation_text_truncated = true;
+          const take = Math.max(0, left);
+          kept.push({ ...entry, observation_text: chars.slice(0, take).join(''), observation_text_truncated: true });
+          nextEv = { evIndex: e, evOffset: take };
           left = 0;
+          break;
+        }
+        formatted.evidence = kept;
+        if (nextEv !== null) {
+          items.push(formatted);
+          used = budget;
+          const nextCursor = encodeGetCursor({
+            ids, index, offset: 0, evIndex: nextEv.evIndex, evOffset: nextEv.evOffset,
+            versions: state.versions ?? versionMapOf(main, ids),
+          });
+          return { status: 'ok', items, missing_ids: missing, snapshot_revision: currentRevision(main), next_cursor: nextCursor, truncated: true, clock: reading };
         }
       }
       items.push(formatted);

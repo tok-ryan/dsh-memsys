@@ -71,16 +71,22 @@ node scripts/live-check.mjs --case tools --profile memsys      # 真机：插件
 - **设置 →「记忆系统」**：`auto_inject` 开关 + 当前数据目录；开关改完**立即生效**（重挂/撤下 system prompt 里的记忆段），刷新后仍在
 - 面板与设置页共用数据口 `/dsh-memsys/api/*`（loopback + 同源校验；跨源 403）
 
-**设置优先级**：`<data_dir>/ui-config.json`（存在且合法）> profile 的 `config.auto_inject` > 默认 `false`。
-`/api/summary` 会返回 `auto_inject_source`，告诉你这个值是从哪来的（`ui-config` / `profile` / `default`）。
+**设置优先级**：`<data_dir>/ui-config.json`（存在且合法）> profile 的 `config` > 默认全开。
+`/api/summary` 会返回 `modules` / `modules_source`，告诉你每个开关的当前值和来源（`ui-config` / `profile` / `default`）。
+
+**注意生效时机**：自动注入、写入工具**改完立即生效**；读取工具 / 做梦 / 项目 / 待确认惦记 / 信息流是**下次启动生效**（工具在启动时一次性注册，宿主没有注销接口）。
 
 **headless 不受影响**：没有 `webServer` 时那段注册不激活，浏览器半也不加载。
 
-## 状态
+## 状态（0.2.1）
 
-已实现并在真机验证**读**与**写**（`dispatch=ok` 返回真实命中、`record=ok` 写入候选与记忆）；**界面**已落地并有 7 条测试，但"真机 GUI 里三个 slot 真的画出来"要装进 profile 目测才算完。
+- **读**：真机 `dispatch=ok`，`direct_hit_count: 2` 返回真实命中
+- **写**：真机 `record=ok`，库内落 candidate + memory，`origin.author_kind=model`、`call_id` 与宿主记录一致
+- **注入**：`compileRound` 已接进运行时，section 文本是**当轮编译出来的记忆目录**（`text` 为函数，每步 `assemble()` 重取）；无 tokenizer/H 时退回 tools-only，不假装投递（`delivery=unknown`）
+- **界面**：左侧栏「记忆」入口 + 面板（三数字 + 最近 5 条）+ 设置页七行模块开关
+- **测试**：356 项全绿
 
-仍有 4 条设计条款未达标：**混版分页测试**（C3，代码已接 `stale_cursor`）、**空分组回执边界**（C1）、**证据原文分片续页**（C4）、以及 `L6` 的"逐项重放 relations 内容"（现在只核到内容 hash + 关联）。逐条见文末"已知边界"，不粉饰。
+**仍不达标**：`L6` 只核到内容 hash 与关联，**没有逐项重放 relations 内容**；真实旧库尚未导入；生产 cutover 未跑；`feed` 生产 provider 未接。见文末"已知边界"。
 
 MIT License。
 

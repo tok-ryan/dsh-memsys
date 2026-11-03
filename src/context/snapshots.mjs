@@ -277,8 +277,16 @@ export function getGroupPage({
     if (decoded.s !== snapshotRevision || decoded.g !== groupId) {
       return { status: 'error', code: 'invalid_cursor', reason: 'cursor_binding_mismatch', clock: clock.at().at };
     }
-    if (main && Number(snapshot.source_revision) !== Number(currentRevision(main))) {
-      return staleCursor(control, clock);
+    if (main) {
+      const manifest = snapshot.manifest_json ? JSON.parse(snapshot.manifest_json) : {};
+      const expectedCount = Array.isArray(manifest.eligible_ids) ? manifest.eligible_ids.length : null;
+      const currentCount = Number(main.prepare('SELECT COUNT(*) AS n FROM memories').get().n);
+      if (
+        Number(snapshot.source_revision) !== Number(currentRevision(main)) ||
+        (expectedCount !== null && currentCount > expectedCount)
+      ) {
+        return staleCursor(control, clock);
+      }
     }
     offset = decoded.o;
   }

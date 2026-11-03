@@ -7,8 +7,11 @@ export const SECTION_ORDER = 500;
  * The only verified injection call shape (probe-p0):
  *   ctx.inject(['systemPrompt'], c => c.systemPrompt.section({name, order, text}))
  * Static `export const inject` would leave the plugin pending forever.
+ *
+ * `dynamicText: true` registers the resolver itself so the host re-reads it per
+ * assembly; the default keeps the historical one-shot string.
  */
-export function registerSection(ctx, { getText, diagnosticMarker = null } = {}) {
+export function registerSection(ctx, { getText, diagnosticMarker = null, dynamicText = false } = {}) {
   if (!ctx || typeof ctx.inject !== 'function') {
     const err = new Error('invalid_ctx');
     err.code = 'invalid_ctx';
@@ -20,7 +23,12 @@ export function registerSection(ctx, { getText, diagnosticMarker = null } = {}) 
       err.code = 'system_prompt_unavailable';
       throw err;
     }
-    const text = typeof getText === 'function' ? getText() : String(getText ?? '');
+    const resolve = () => (typeof getText === 'function' ? getText() : String(getText ?? ''));
+    // Dynamic text stays a function: the host re-evaluates it on every
+    // `systemPrompt.assemble()`, i.e. once per model step (verified on a probe
+    // profile: two assemblies produced probe-1 then probe-2). A static string
+    // would freeze the first round forever.
+    const text = dynamicText ? resolve : resolve();
     c.systemPrompt.section({ name: SECTION_NAME, order: SECTION_ORDER, text });
     if (diagnosticMarker) {
       fs.writeFileSync(
@@ -29,7 +37,8 @@ export function registerSection(ctx, { getText, diagnosticMarker = null } = {}) 
           {
             name: SECTION_NAME,
             order: SECTION_ORDER,
-            text_length: String(text).length,
+            text_length: String(resolve()).length,
+            dynamic: dynamicText === true,
             registered_at: new Date().toISOString(),
           },
           null,

@@ -246,8 +246,22 @@ function textRender(value) {
 }
 
 /** Plain tool objects before the host wraps them with defineTool. */
-export function toolDefinitions(handlers = {}) {
-  return MEMSYS_TOOLS.map((name) => {
+export function enabledToolNames(modules = null) {
+  const enabled = modules ?? { context: true, read: true, write: true, dream: true, projects: true, due: true, feed: true };
+  return MEMSYS_TOOLS.filter((name) => {
+    if (['memsys_get', 'memsys_search', 'memsys_review_get', 'memsys_context_get', 'memsys_self_get'].includes(name)) {
+      return enabled.read !== false;
+    }
+    if (name === 'memsys_project_get') return enabled.read !== false && enabled.projects !== false;
+    if (['memsys_dream_record', 'memsys_organize'].includes(name)) return enabled.dream !== false;
+    if (name === 'memsys_feed') return enabled.feed !== false;
+    if (name === 'memsys_record') return true; // registered but call-gated for an explicit module_disabled
+    return true;
+  });
+}
+
+export function toolDefinitions(handlers = {}, modules = null) {
+  return enabledToolNames(modules).map((name) => {
     const spec = TOOL_SPECS[name];
     return {
       name,
@@ -255,6 +269,9 @@ export function toolDefinitions(handlers = {}) {
       parameters: spec.parameters,
       outputSchema: TOOL_OUTPUT_SCHEMAS[name] ?? openObject(),
       async execute(args, exec) {
+        if (name === 'memsys_record' && modules?.write === false) {
+          return { status: 'error', code: 'module_disabled', module: 'write' };
+        }
         const handler = handlers[name];
         if (typeof handler !== 'function') {
           return { status: 'error', code: 'handler_unavailable', tool: name };
@@ -292,7 +309,7 @@ export function toolCapabilityStatus(liveReport = null) {
  * Register against a host ctx. No ctx.tools -> tools-only, no throw.
  * `defineTool` is resolved dynamically so offline tests never need the host package.
  */
-export async function registerHostTools({ ctx = null, handlers = {}, defineTool: injectedDefineTool = null } = {}) {
+export async function registerHostTools({ ctx = null, handlers = {}, modules = null, defineTool: injectedDefineTool = null } = {}) {
   if (!ctx || !ctx.tools || typeof ctx.tools.register !== 'function') {
     return { status: 'tools_only', registered: [], reason: 'no_tools_service', defineTool: null, tools: [...MEMSYS_TOOLS] };
   }
@@ -313,7 +330,7 @@ export async function registerHostTools({ ctx = null, handlers = {}, defineTool:
   }
   const registered = [];
   const errors = [];
-  for (const spec of toolDefinitions(handlers)) {
+  for (const spec of toolDefinitions(handlers, modules)) {
     try {
       const tool = defineTool({
         name: spec.name,

@@ -50,7 +50,7 @@ export function recordDelivery({
     missing = expected.filter((id) => !receivedSet.has(id));
     extra = received.filter((id) => !expectedSet.has(id));
     hashMatched = payloadHash !== null && manifest?.hashes?.payload === payloadHash;
-    if (missing.length === 0 && extra.length === 0 && hashMatched) {
+    if (actualMemories.length > 0 && missing.length === 0 && extra.length === 0 && hashMatched) {
       delivery = 'confirmed';
     } else if (received.length > 0) {
       delivery = 'incomplete';
