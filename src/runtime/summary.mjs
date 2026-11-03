@@ -12,8 +12,12 @@ import {
   resolveModulesDetail,
   writeUiConfig,
 } from './ui-config.mjs';
+import { searchMemories } from '../read/search.mjs';
 
 const RECENT_LIMIT = 5;
+const SEARCH_LIMIT_DEFAULT = 20;
+const SEARCH_LIMIT_MAX = 50;
+const QUERY_MAX_CHARS = 200;
 // 主人要求：卡片展示 120 字（按码点截断，预算保护仍在 host 侧）
 const TEXT_LIMIT = 120;
 const BODY_LIMIT = 4096;
@@ -52,6 +56,95 @@ export function buildSummary(
     // Without this the "on" switch can be a lie: the injector may be running on
     // tools-only text because no tokenizer/H reached it.
     inject: { level: inject?.level ?? 'unavailable', reason: inject?.reason ?? null },
+  };
+}
+
+/**
+ * Search over the existing retrieval layer — no second query implementation.
+ * The search layer returns ids and text; kind/created_at come from one lookup by
+ * id, and per-item score is not exposed by it (null rather than invented).
+ */
+export function buildSearch(main, { q, limit = SEARCH_LIMIT_DEFAULT, clock } = {}) {
+  const db = typeof main === 'function' ? main() : main;
+  const result = searchMemories({ main: db, clock, keywords: q, maxChars: 16000 });
+  if (result?.status !== 'ok') return { status: 'error', code: result?.code ?? 'search_failed' };
+  const hits = result.hits ?? [];
+  const ids = hits.map((hit) => hit.id);
+  const meta = new Map();
+  if (ids.length > 0) {
+    const placeholders = ids.map(() => '?').join(',');
+    for (const row of db.prepare(`SELECT id, type, recorded_at FROM memories WHERE id IN (${placeholders})`).all(...ids)) {
+      meta.set(row.id, row);
+    }
+  }
+  const items = hits.slice(0, limit).map((hit) => ({
+    id: hit.id,
+    text: truncate(hit.text),
+    kind: meta.get(hit.id)?.type ?? null,
+    created_at: meta.get(hit.id)?.recorded_at ?? null,
+    score: null,
+  }));
+  return { status: 'ok', q, items, total: Number(result.direct_hit_count ?? items.length) };
+}
+
+function readQuery(url) {
+  const raw = String(url ?? '');
+  const index = raw.indexOf('?');
+  if (index < 0) return new URLSearchParams('');
+  try {
+    return new URLSearchParams(raw.slice(index + 1));
+  } catch {
+    return new URLSearchParams('');
+  }
+}
+
+/**
+ * GET /dsh-memsys/api/search?q=…&limit=…
+ * Same loopback + same-origin gate as the summary route; text is truncated to
+ * the same 120 codepoints the panel shows, and always keeps its id.
+ */
+export function createSearchHandler({ main, clock, logger = console } = {}) {
+  const send = (res, status, payload) => {
+    res.statusCode = status;
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('cache-control', 'no-store');
+    res.end(JSON.stringify(payload));
+  };
+
+  return (req, res) => {
+    if (!isLoopback(req) || !sameOrigin(req)) {
+      send(res, 403, { error: 'forbidden' });
+      return;
+    }
+    if (req.method && req.method !== 'GET') {
+      send(res, 405, { error: 'method_not_allowed' });
+      return;
+    }
+    const params = readQuery(req.url);
+    const q = String(params.get('q') ?? '').trim();
+    if (!q) {
+      send(res, 400, { error: 'empty_query' });
+      return;
+    }
+    if (Array.from(q).length > QUERY_MAX_CHARS) {
+      send(res, 400, { error: 'query_too_long' });
+      return;
+    }
+    const rawLimit = Number(params.get('limit'));
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(SEARCH_LIMIT_MAX, Math.floor(rawLimit))
+      : SEARCH_LIMIT_DEFAULT;
+    try {
+      const result = buildSearch(main, { q, limit, clock });
+      if (result.status !== 'ok') {
+        send(res, 503, { error: 'search_unavailable', message: String(result.code) });
+        return;
+      }
+      send(res, 200, { q: result.q, items: result.items, total: result.total });
+    } catch (err) {
+      logger?.warn?.(`[dsh-memsys] search failed: ${err?.message ?? err}`);
+      send(res, 503, { error: 'search_unavailable', message: String(err?.code ?? err?.message ?? err) });
+    }
   };
 }
 

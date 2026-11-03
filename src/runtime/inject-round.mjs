@@ -65,7 +65,7 @@ export function createRoundInjector({
     }
     const sessionId = sessionIdOf(turn) ?? state.sessionId;
     counter += 1;
-    const roundId = turn?.id ?? turn?.roundId ?? `turn-${counter}`;
+    const roundId = turn?.id ?? turn?.roundId ?? `turn-${Date.now()}-${counter}`;
     let result;
     try {
       result = compileRound({

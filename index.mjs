@@ -12,7 +12,7 @@ import { createFeedHandler } from './src/tools/feed.mjs';
 import { createSelfHandler } from './src/tools/self.mjs';
 import { createRecordHandler } from './src/tools/record.mjs';
 import { runtimeFromExec } from './src/runtime/identity.mjs';
-import { createSummaryHandler } from './src/runtime/summary.mjs';
+import { createSearchHandler, createSummaryHandler } from './src/runtime/summary.mjs';
 import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime/ui-config.mjs';
 import { createRoundInjector } from './src/runtime/inject-round.mjs';
 import { createMemSysService, provideMemSysService } from './src/runtime/service.mjs';
@@ -84,6 +84,7 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
     apply() {},
     sync: () => {},
   };
+  const uiSearch = createSearchHandler({ main: () => db().main, clock: systemClock });
   const uiSummary = createSummaryHandler({
     main: () => db().main,
     dataDir,
@@ -149,6 +150,7 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
     memsys_self_get: (args) => createSelfHandler({ main: db().main, clock: systemClock }).get(args),
     memsys_feed: (args) => createFeedHandler({ clock: systemClock }).feed(args),
     memsys_ui_summary: (req, res) => uiSummary(req, res),
+    memsys_ui_search: (req, res) => uiSearch(req, res),
     // Cross-plugin surface: `ctx.provide('memsys', …)` exposes this instance.
     memsys_service: () => createMemSysService({ main: db().main, control: db().control, clock: systemClock }),
     memsys_record: (args, exec) => {
@@ -390,6 +392,15 @@ export async function apply(ctx, config = {}) {
               handler: (req, res) => handlers.memsys_ui_summary(req, res),
             }),
           'memsys: ui config route',
+        );
+        web.effect(
+          () =>
+            web.webServer.register({
+              kind: 'exact',
+              path: '/dsh-memsys/api/search',
+              handler: (req, res) => handlers.memsys_ui_search(req, res),
+            }),
+          'memsys: ui search route',
         );
       });
     } catch {

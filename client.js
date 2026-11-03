@@ -6,6 +6,7 @@ window.__ModuleLoader__.load({
     const NS = 'dsh-memsys';
     const API = '/dsh-memsys/api/summary';
     const CONFIG = '/dsh-memsys/api/config';
+    const SEARCH = '/dsh-memsys/api/search';
 
     function useSummary() {
       const [state, setState] = React.useState(null);
@@ -46,6 +47,13 @@ window.__ModuleLoader__.load({
       '.ms-empty{width:44px;height:44px;border-radius:50%;border:1px dashed rgba(127,127,127,.35);background:rgba(127,127,127,.05)}',
       '.ms-card{margin-top:10px;padding:12px 14px;border-radius:10px;background:rgba(127,127,127,.08);font-size:.95em}',
       '.ms-hint{opacity:.75;margin:6px 0 0}',
+      '.ms-search{width:100%;box-sizing:border-box;padding:7px 10px;margin:0 0 12px;border-radius:8px;',
+      'border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.06);color:inherit;font:inherit}',
+      '.ms-row{display:block;width:100%;text-align:left;padding:8px 10px;margin:0 0 6px;border-radius:8px;cursor:pointer;',
+      'border:1px solid transparent;background:rgba(127,127,127,.06);color:inherit;font:inherit}',
+      '.ms-row:hover,.ms-row:focus-visible{border-color:rgba(63,167,255,.55);outline:none}',
+      '.ms-kind{opacity:.65;margin-right:6px;font-size:.9em}',
+      '.ms-muted{opacity:.65}',
       '@media (prefers-reduced-motion:reduce){.ms-ball{animation:none}}',
     ].join('');
     const BALL_COLORS = ['#3fa7ff', '#5b8cff', '#7a6bff', '#8f5bd8', '#8450a8'];
@@ -59,9 +67,57 @@ window.__ModuleLoader__.load({
     const EMPTY_SLOTS = 5;
     const CARD_TEXT_LIMIT = 120;
 
+    function SearchResults({ query, onOpen, openId }) {
+      const [result, setResult] = React.useState(null);
+      const [failed, setFailed] = React.useState(false);
+      React.useEffect(() => {
+        if (!query) return undefined;
+        let alive = true;
+        let timer = null;
+        const run = () => {
+          fetch(SEARCH + '?q=' + encodeURIComponent(query))
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+            .then((data) => {
+              if (!alive) return;
+              setFailed(false);
+              setResult(Array.isArray(data?.items) ? data.items : []);
+            })
+            .catch(() => {
+              if (alive) setFailed(true);
+            });
+        };
+        timer = setTimeout(run, 250);
+        return () => {
+          alive = false;
+          clearTimeout(timer);
+        };
+      }, [query]);
+      if (failed) return h('p', { className: 'ms-muted' }, '搜索不可用');
+      if (result === null) return h('p', { className: 'ms-muted' }, '搜索中…');
+      if (result.length === 0) return h('p', { className: 'ms-muted' }, '没找到匹配的记忆');
+      return h('div', { role: 'list', 'aria-label': '搜索结果' },
+        result.map((item) => {
+          const open = openId === item.id;
+          const body = Array.from(String(item.text ?? '')).slice(0, CARD_TEXT_LIMIT).join('');
+          return h('button', {
+            key: item.id,
+            type: 'button',
+            role: 'listitem',
+            className: 'ms-row',
+            'aria-expanded': open,
+            onClick: () => onOpen(open ? null : item.id),
+          },
+          h('span', { className: 'ms-kind' }, '[' + (item.kind ?? 'memory') + ']'),
+          h('span', null, open ? body : Array.from(body).slice(0, 40).join('') + (body.length > 40 ? '…' : '')),
+          );
+        }));
+    }
+
     function MemoryPanel() {
       const [state] = useSummary();
       const [selectedId, setSelectedId] = React.useState(null);
+      const [query, setQuery] = React.useState('');
+      const [openResultId, setOpenResultId] = React.useState(null);
       if (!state) return h('p', { className: 'ms-panel' }, '读取记忆…');
       if (state.error) return h('p', { className: 'ms-panel' }, '暂时读不到记忆数据。');
       const recent = state.recent ?? [];
@@ -76,7 +132,21 @@ window.__ModuleLoader__.load({
         h('h2', { style: { margin: '0 0 8px' } }, '记忆'),
         h('p', { className: 'ms-counts' },
           `记忆 ${state.memories} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
-        h('div', { className: 'ms-shelf', role: 'list', 'aria-label': '最近的记忆' },
+        h('input', {
+          className: 'ms-search',
+          type: 'search',
+          value: query,
+          placeholder: '搜记忆…',
+          'aria-label': '搜记忆',
+          onChange: (event) => setQuery(event.target.value),
+          onKeyDown: (event) => {
+            // Enter searches immediately; typing waits for the 250ms debounce.
+            if (event.key === 'Enter') setQuery(event.currentTarget.value);
+          },
+        }),
+        query
+          ? h(SearchResults, { query, openId: openResultId, onOpen: setOpenResultId })
+          : h('div', { className: 'ms-shelf', role: 'list', 'aria-label': '最近的记忆' },
           shelf.map((memory, index) => memory === null
             ? h('span', { key: `empty-${index}`, className: 'ms-empty', 'aria-hidden': true })
             : h('button', {
@@ -97,10 +167,13 @@ window.__ModuleLoader__.load({
               onClick: () => setSelectedId(selectedId === memory.id ? null : memory.id),
             })),
         ),
-        recent.length === 0
-          ? h('p', { className: 'ms-hint' }, '还没有记忆。去跟模型说一句「记住：…」吧')
-          : h('p', { className: 'ms-hint' }, '点亮一颗球，看看它装的是什么。'),
-        selected
+        query
+          ? null
+          : h('p', { className: 'ms-hint' },
+            recent.length === 0
+              ? '还没有记忆。去跟模型说一句「记住：…」吧'
+              : '点亮一颗球，看看它装的是什么。'),
+        !query && selected
           ? h('div', { className: 'ms-card', key: selected.id },
             Array.from(selected.text).slice(0, CARD_TEXT_LIMIT).join(''))
           : null,

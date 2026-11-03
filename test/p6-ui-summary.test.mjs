@@ -12,7 +12,7 @@ import {
   resolveModulesDetail,
   writeUiConfig,
 } from '../src/runtime/ui-config.mjs';
-import { buildSummary, createSummaryHandler } from '../src/runtime/summary.mjs';
+import { buildSummary, createSearchHandler, createSummaryHandler } from '../src/runtime/summary.mjs';
 import { registerHostTools } from '../src/runtime/tools.mjs';
 import { conservativeTokens } from '../src/context/budget.mjs';
 import { insertRow } from '../src/storage/repositories.mjs';
@@ -44,12 +44,12 @@ function fakeRes() {
   };
 }
 
-function fakeReq({ method = 'GET', headers = {}, body = null, remoteAddress = '127.0.0.1' } = {}) {
+function fakeReq({ method = 'GET', headers = {}, body = null, remoteAddress = '127.0.0.1', url = '/dsh-memsys/api/summary' } = {}) {
   const listeners = new Map();
   const req = {
     method,
     headers,
-    url: '/dsh-memsys/api/summary',
+    url,
     socket: { remoteAddress },
     on(event, handler) {
       listeners.set(event, handler);
@@ -401,6 +401,7 @@ test('P6/UI: with webServer the two exact routes serve loopback and reject cross
       [
         ['exact', '/dsh-memsys/api/summary'],
         ['exact', '/dsh-memsys/api/config'],
+        ['exact', '/dsh-memsys/api/search'],
       ],
     );
 
@@ -568,4 +569,55 @@ test('P6/UI: the registered section text carries a real memory id, and nothing m
   } finally {
     disposeOff();
   }
+});
+
+test('P6/UI: search route returns id-bearing items from the existing retrieval layer', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+
+  const observation = makeObservation(ctx, { text: '香菜不要放，闻到就想吐。' });
+  insertRow(ctx.main, 'observations', observation);
+  const candidate = makeCandidate(ctx, observation, { businessKey: 'ui-search-1', text: '不吃香菜' });
+  insertRow(ctx.main, 'candidates', candidate);
+  const memory = makeMemory(ctx, candidate, { businessKey: 'ui-search-mem' });
+  insertRow(ctx.main, 'memories', memory);
+
+  const handler = createSearchHandler({ main: ctx.main, clock: ctx.clock });
+  const res = fakeRes();
+  handler(fakeReq({ headers: { host: '127.0.0.1:50478' }, url: '/dsh-memsys/api/search?q=%E9%A6%99%E8%8F%9C&limit=5' }), res);
+  assert.equal(res.statusCode, 200);
+  const body = res.json();
+  assert.equal(body.q, '香菜');
+  assert.ok(Array.isArray(body.items) && body.items.length >= 1);
+  const first = body.items[0];
+  assert.equal(first.id, memory.id);
+  assert.equal(typeof first.text, 'string');
+  assert.equal(first.kind, 'episode');
+  assert.ok(Array.from(first.text).length <= 120);
+  assert.equal(typeof body.total, 'number');
+
+  const empty = fakeRes();
+  handler(fakeReq({ url: '/dsh-memsys/api/search?q=' }), empty);
+  assert.equal(empty.statusCode, 400);
+  assert.equal(empty.json().error, 'empty_query');
+
+  const cross = fakeRes();
+  handler(
+    fakeReq({ headers: { origin: 'https://evil.example', host: '127.0.0.1:50478' }, url: '/dsh-memsys/api/search?q=x' }),
+    cross,
+  );
+  assert.equal(cross.statusCode, 403);
+});
+
+test('P6/UI: the browser half renders a debounced search box and never builds HTML', () => {
+  const code = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8');
+  assert.ok(code.includes("placeholder: '搜记忆…'"), 'search box with the agreed placeholder');
+  assert.ok(code.includes("const SEARCH = '/dsh-memsys/api/search'"));
+  assert.ok(code.includes('encodeURIComponent(query)'));
+  assert.ok(/setTimeout\(run, 250\)/.test(code), 'input is debounced by 250ms');
+  assert.ok(code.includes("'没找到匹配的记忆'"));
+  assert.ok(code.includes("'搜索不可用'"));
+  // The only innerHTML-ish call is the <style> block; result rows are React text nodes.
+  assert.equal((code.match(/dangerouslySetInnerHTML/g) ?? []).length, 1);
+  assert.equal((code.match(/innerHTML/g) ?? []).length, 0, 'no raw innerHTML: rows are text nodes');
 });
