@@ -10,9 +10,18 @@ node scripts/live-check.mjs --case tools        # 真机：插件能否装进宿
 
 已实测（隔离 profile，带 key）：插件加载 → 10 个 `memsys_*` 工具注册进宿主 → 模型调用 `memsys_search` 返回真实命中 → 模型调用 `memsys_record` 写入候选与记忆，`origin.author_kind=model`、会话与调用 ID 与宿主记录一致。
 
-## 从 GitHub 安装
+## 安装
 
-**尚未发布到 npm**，所以 `npm install dsh-memsys` 装不到。现在的装法是先克隆再让 DSH 从本地路径安装：
+**已发布到 npm**：`dsh-memsys@0.1.0`（https://www.npmjs.com/package/dsh-memsys）。
+
+装进一个**独立 profile**（不要直接装进你日常用的那个）：
+
+```bash
+dsh --profile memsys headless --from-default-profile --dump-config   # 初始化隔离 profile
+dsh plugin --profile memsys add dsh-memsys                            # 从 npm 装
+```
+
+或者不依赖 npm，从源码装：
 
 ```bash
 git clone https://github.com/tok-ryan/dsh-memsys.git dsh-memsys
@@ -20,10 +29,7 @@ cd dsh-memsys
 npm test                    # 先跑一遍，确认本地环境能过（Node >= 22.13）
 ```
 
-然后用一个**独立 profile** 装进去（不要直接装进你日常用的那个）：
-
 ```bash
-dsh --profile memsys headless --from-default-profile --dump-config   # 初始化一个隔离 profile
 dsh plugin --profile memsys add "file:///全/路径/dsh-memsys"          # 按实际路径改
 ```
 
