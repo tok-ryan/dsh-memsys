@@ -1,0 +1,13 @@
+{
+  "keywords": ["AI", "记忆", "对齐"],
+  "recentDays": 7,
+  "items": [
+    { "id": "f-accepted", "title": "记忆系统对齐实验 v1.2.3", "description": "跑了 5 GB 数据", "publishedAt": "2026-11-01T10:00:00+08:00" },
+    { "id": "f-old", "title": "记忆系统旧闻", "description": "《旧书》里的内容", "publishedAt": "2025-01-01T00:00:00+08:00" },
+    { "id": "f-future", "title": "记忆系统未来稿", "description": "AI 对齐", "publishedAt": "2030-01-01T00:00:00+08:00" },
+    { "id": "f-missing", "title": "记忆系统缺时间", "description": "API 文档", "publishedAt": null },
+    { "id": "f-bare", "title": "记忆系统裸日期", "description": "v2.0.0", "publishedAt": "2026-11-01" },
+    { "id": "f-nodetail", "title": "记忆系统没细节", "description": "只是一些情绪词", "publishedAt": "2026-11-01T09:00:00+08:00" },
+    { "id": "f-irrelevant", "title": "今天天气不错", "description": "3天没下雨", "publishedAt": "2026-11-01T09:00:00+08:00" }
+  ]
+}
