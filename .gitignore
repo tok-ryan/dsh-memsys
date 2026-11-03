@@ -1,0 +1,10 @@
+node_modules/
+*.log
+*.db
+*.db-wal
+*.db-shm
+artifacts/
+test-data/
+_build/
+.DS_Store
+Thumbs.db
