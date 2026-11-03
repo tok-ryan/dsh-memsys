@@ -1,6 +1,14 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.1
+
+### Fixed
+- **球架上的球点不动**：3D 台面（`rotateX(62deg)` 的 deck / 前缘 / 背板 / 立柱）压在球前面，
+  命中测试落在 `.ms-rack` 上而不是 `.ms-ball` 按钮。修法：装板类装饰件 `pointer-events:none`，
+  架子容器本身也不拦点击，只把球位那一串恢复可点；整排球位再往观众方向抬 14px。
+  验证方式：无头浏览器 `elementFromPoint(球心)` 从 `ms-rack` 变为 `BUTTON.ms-ball`。
+
+## 0.3.0
 
 复习考试、人格版本化、数据目录统一、玻璃球精修。
 

@@ -128,6 +128,16 @@ window.__ModuleLoader__.load({
 '.ms-muted{opacity:.65}',
 '@media (prefers-color-scheme:dark){.ms-rack[data-depth="1"] .ms-ball{filter:brightness(.94) saturate(.88)}.ms-rack[data-depth="2"] .ms-ball{filter:brightness(.86) saturate(.76)}}',
 '@media (prefers-reduced-motion:reduce){.ms-ball,.ms-ball::after,.ms-empty::before{animation:none !important;transition:none !important}.ms-world{transition:none !important}}',
+      // 命中修复：架板、背板、前缘、立柱、隔板都是装饰件，不该吃掉点击；
+      // 然后把整排球位往观众方向抬 14px，保证球在 decks 之前被命中。
+      '.ms-rack .rk-deck,.ms-rack .rk-front,.ms-rack .rk-back,.ms-rack .rk-post,.ms-rack .rk-div{pointer-events:none}',
+      '.rk-slots{transform:translateZ(14px)}',
+      // 球位本身也整块可点：点在软垫/托座上同样选中这颗球（最小 44px 命中区）。
+      '.ms-slot{cursor:pointer}',
+      '.ms-slot .ms-ball{position:relative;z-index:2}',
+      // 架子容器本身也整块不拦点击，只有球位那一串恢复可点。
+      '.ms-rack{pointer-events:none}',
+      '.rk-slots,.rk-cell,.ms-slot,.ms-stand,.ms-ball{pointer-events:auto}',
     ].join('');
     const BALL_SIZES = [44, 40, 36, 32];
     // 固定 7 色 token 表：色相固定、明度高、饱和低；暗部用同色相加深，不压黑。
