@@ -1,6 +1,6 @@
-﻿{
+{
   "name": "dsh-memsys",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "A memory system plugin for DeepSeek Harness: append-only facts, candidates and adjudication, dreams, and budget-aware context injection.",
   "license": "MIT",
   "repository": {
