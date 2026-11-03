@@ -1,0 +1,6 @@
+- insert:
+    - id: memsys
+      name: dsh-memsys
+      config:
+        auto_inject: false
+        diagnostic_section: false
