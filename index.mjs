@@ -15,6 +15,7 @@ import { runtimeFromExec } from './src/runtime/identity.mjs';
 import { createSummaryHandler } from './src/runtime/summary.mjs';
 import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime/ui-config.mjs';
 import { createRoundInjector } from './src/runtime/inject-round.mjs';
+import { createMemSysService, provideMemSysService } from './src/runtime/service.mjs';
 import { compileRound } from './src/context/compile.mjs';
 
 export const name = 'dsh-memsys';
@@ -136,6 +137,8 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
     memsys_self_get: (args) => createSelfHandler({ main: db().main, clock: systemClock }).get(args),
     memsys_feed: (args) => createFeedHandler({ clock: systemClock }).feed(args),
     memsys_ui_summary: (req, res) => uiSummary(req, res),
+    // Cross-plugin surface: `ctx.provide('memsys', …)` exposes this instance.
+    memsys_service: () => createMemSysService({ main: db().main, control: db().control, clock: systemClock }),
     memsys_record: (args, exec) => {
       const identity = runtimeFromExec({ exec, ctx, tool: 'record', args });
       if (!identity.ok) return { status: 'error', code: identity.code, ...identity };
@@ -166,6 +169,17 @@ export async function apply(ctx, config = {}) {
   const ui = createUiState(config);
   const handlers = createHostHandlers(config, ctx, ui);
   const registration = await registerHostTools({ ctx, handlers, modules: ui.modules });
+
+  // Optional cross-plugin service: other plugins reach memsys through
+  // `ctx.get('memsys')`. Registration needs `ctx.provide`; a profile (or a fake
+  // harness in tests) without it simply keeps the service unprovided.
+  if (typeof ctx?.provide === 'function' && typeof handlers.memsys_service === 'function') {
+    try {
+      provideMemSysService(ctx, handlers.memsys_service());
+    } catch {
+      // no data dir yet, or the host refused the registration: tools still work
+    }
+  }
 
   // The round injector owns the session/turn subscription; the section only
   // reads its current text. Verified empirically: a section's `text` function is
