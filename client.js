@@ -27,19 +27,83 @@ window.__ModuleLoader__.load({
       return [state, setState];
     }
 
+    // Pure CSS/DOM "memory balls on a shelf". No 3D library, no build step,
+    // no external resource: gradient + inset shadow + one float keyframe.
+    const BALL_CSS = [
+      '@keyframes msFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}',
+      '.ms-panel{padding:16px;line-height:1.7}',
+      '.ms-counts{margin:0 0 12px;opacity:.85}',
+      '.ms-shelf{display:flex;gap:16px;align-items:flex-end;padding:12px 16px 8px;margin:0 0 10px;border-radius:12px;',
+      'background:linear-gradient(180deg,rgba(127,127,127,.10),rgba(127,127,127,.03));',
+      'box-shadow:inset 0 -1px 0 rgba(127,127,127,.28)}',
+      '.ms-ball{width:44px;height:44px;border-radius:50%;border:0;padding:0;cursor:pointer;position:relative;',
+      'background:radial-gradient(circle at 32% 27%,rgba(255,255,255,.95),rgba(255,255,255,.28) 16%,var(--ms-c) 60%,rgba(0,0,0,.45) 100%);',
+      'box-shadow:inset -6px -8px 14px rgba(0,0,0,.30),inset 6px 6px 12px rgba(255,255,255,.22),0 4px 10px rgba(0,0,0,.18);',
+      'animation:msFloat 5s ease-in-out infinite;transition:transform .15s ease,box-shadow .15s ease}',
+      '.ms-ball:hover,.ms-ball:focus-visible{transform:scale(1.06);',
+      'box-shadow:inset -6px -8px 14px rgba(0,0,0,.30),inset 6px 6px 12px rgba(255,255,255,.22),0 0 18px 4px var(--ms-glow);outline:none}',
+      '.ms-ball[aria-pressed="true"]{transform:scale(1.06);box-shadow:0 0 18px 4px var(--ms-glow)}',
+      '.ms-empty{width:44px;height:44px;border-radius:50%;border:1px dashed rgba(127,127,127,.35);background:rgba(127,127,127,.05)}',
+      '.ms-card{margin-top:10px;padding:12px 14px;border-radius:10px;background:rgba(127,127,127,.08);font-size:.95em}',
+      '.ms-hint{opacity:.75;margin:6px 0 0}',
+      '@media (prefers-reduced-motion:reduce){.ms-ball{animation:none}}',
+    ].join('');
+    const BALL_COLORS = ['#3fa7ff', '#5b8cff', '#7a6bff', '#8f5bd8', '#8450a8'];
+    const BALL_GLOWS = [
+      'rgba(63,167,255,.45)',
+      'rgba(91,140,255,.45)',
+      'rgba(122,107,255,.45)',
+      'rgba(143,91,216,.45)',
+      'rgba(132,80,168,.45)',
+    ];
+    const EMPTY_SLOTS = 5;
+    const CARD_TEXT_LIMIT = 120;
+
     function MemoryPanel() {
       const [state] = useSummary();
-      if (!state) return h('p', { style: { padding: 16 } }, '读取记忆…');
-      if (state.error) return h('p', { style: { padding: 16 } }, '暂时读不到记忆数据。');
+      const [selectedId, setSelectedId] = React.useState(null);
+      if (!state) return h('p', { className: 'ms-panel' }, '读取记忆…');
+      if (state.error) return h('p', { className: 'ms-panel' }, '暂时读不到记忆数据。');
+      const recent = state.recent ?? [];
+      const selected = recent.find((memory) => memory.id === selectedId) ?? null;
+      // Pad with ghost slots so an almost-empty shelf keeps its shape.
+      const shelf = [];
+      for (let index = 0; index < Math.max(recent.length, EMPTY_SLOTS); index += 1) shelf.push(recent[index] ?? null);
       return h(
         'div',
-        { style: { padding: 16, lineHeight: 1.7 } },
+        { className: 'ms-panel' },
+        h('style', { dangerouslySetInnerHTML: { __html: BALL_CSS } }),
         h('h2', { style: { margin: '0 0 8px' } }, '记忆'),
-        h('p', null, `记忆 ${state.memories} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
-        h('h3', { style: { margin: '16px 0 6px' } }, '最近 5 条'),
-        state.recent.length === 0
-          ? h('p', null, '还没有记忆。')
-          : h('ul', null, state.recent.map((memory) => h('li', { key: memory.id }, memory.text))),
+        h('p', { className: 'ms-counts' },
+          `记忆 ${state.memories} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
+        h('div', { className: 'ms-shelf', role: 'list', 'aria-label': '最近的记忆' },
+          shelf.map((memory, index) => memory === null
+            ? h('span', { key: `empty-${index}`, className: 'ms-empty', 'aria-hidden': true })
+            : h('button', {
+              key: memory.id,
+              type: 'button',
+              role: 'listitem',
+              className: 'ms-ball',
+              'aria-pressed': selectedId === memory.id,
+              'aria-label': memory.text,
+              title: memory.text,
+              style: {
+                '--ms-c': BALL_COLORS[Math.min(index, BALL_COLORS.length - 1)],
+                '--ms-glow': BALL_GLOWS[Math.min(index, BALL_GLOWS.length - 1)],
+                animationDelay: `${index * 0.35}s`,
+                width: `${44 - Math.min(index, 3) * 2}px`,
+                height: `${44 - Math.min(index, 3) * 2}px`,
+              },
+              onClick: () => setSelectedId(selectedId === memory.id ? null : memory.id),
+            })),
+        ),
+        recent.length === 0
+          ? h('p', { className: 'ms-hint' }, '还没有记忆。去跟模型说一句「记住：…」吧')
+          : h('p', { className: 'ms-hint' }, '点亮一颗球，看看它装的是什么。'),
+        selected
+          ? h('div', { className: 'ms-card', key: selected.id },
+            Array.from(selected.text).slice(0, CARD_TEXT_LIMIT).join(''))
+          : null,
       );
     }
 

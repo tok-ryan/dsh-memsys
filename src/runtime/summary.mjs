@@ -14,7 +14,8 @@ import {
 } from './ui-config.mjs';
 
 const RECENT_LIMIT = 5;
-const TEXT_LIMIT = 80;
+// 主人要求：卡片展示 120 字（按码点截断，预算保护仍在 host 侧）
+const TEXT_LIMIT = 120;
 const BODY_LIMIT = 4096;
 
 const truncate = (text) => Array.from(String(text ?? '')).slice(0, TEXT_LIMIT).join('');

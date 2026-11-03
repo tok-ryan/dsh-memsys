@@ -283,7 +283,8 @@ test('P6/UI: counts only open candidates, pending-due memories, and truncates re
   assert.equal(summary.candidates, 2, 'promoted candidates are history, not "候选"');
   assert.equal(summary.pending_due, 1);
   assert.equal(summary.recent.length, 2);
-  assert.equal(Array.from(summary.recent.find((row) => row.id === dueMemory.id).text).length, 80);
+  // 主人要求 120 码点（原来是 80）；这里改的是需求，不是放宽判据。
+  assert.equal(Array.from(summary.recent.find((row) => row.id === dueMemory.id).text).length, 120);
 });
 
 test('P6/UI: routes reject off-loopback and cross-origin callers', () => {
