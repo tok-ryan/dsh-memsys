@@ -50,3 +50,29 @@ test('P6/service: directory returns a string containing a real memory id', (t) =
   assert.equal(typeof text, 'string');
   assert.ok(text.includes(memory.id), text.slice(0, 200));
 });
+
+test('P6/service: list is ordered and paginates by recorded_at desc', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+  for (const text of ['列表一', '列表二', '列表三']) seedMemory(ctx, text);
+  const service = createMemSysService({ main: ctx.main, control: ctx.control, clock: ctx.clock });
+  const all = service.list({ limit: 10, offset: 0 });
+  assert.equal(all.items.length, 3);
+  for (let i = 1; i < all.items.length; i += 1) {
+    assert.ok(all.items[i - 1].created_at >= all.items[i].created_at);
+  }
+  const first = service.list({ limit: 1, offset: 0 });
+  const second = service.list({ limit: 1, offset: 1 });
+  assert.equal(first.items[0].id, all.items[0].id);
+  assert.equal(second.items[0].id, all.items[1].id);
+});
+
+test('P6/service: sample returns distinct memories when n <= total', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+  for (const text of ['样本一', '样本二', '样本三', '样本四']) seedMemory(ctx, text);
+  const service = createMemSysService({ main: ctx.main, control: ctx.control, clock: ctx.clock });
+  const result = service.sample({ n: 3 });
+  assert.equal(result.items.length, 3);
+  assert.equal(new Set(result.items.map((item) => item.id)).size, 3);
+});

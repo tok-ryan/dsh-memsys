@@ -29,6 +29,42 @@ export function createMemSysService({ main, control, clock }) {
   return {
     version: 1,
 
+    list({ limit = 20, offset = 0, kind = 'memory' } = {}) {
+      const table = kind === 'candidate' || kind === 'candidates' ? 'candidates' : 'memories';
+      const take = Math.max(1, Math.min(200, Number(limit) || 20));
+      const skip = Math.max(0, Number(offset) || 0);
+      const total = Number(main.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n);
+      const rows = main
+        .prepare(`SELECT id, text, recorded_at AS created_at FROM ${table} ORDER BY recorded_at DESC, id DESC LIMIT ? OFFSET ?`)
+        .all(take, skip);
+      return {
+        kind: table === 'candidates' ? 'candidate' : 'memory',
+        total,
+        limit: take,
+        offset: skip,
+        items: rows.map((row) => ({
+          id: row.id,
+          text: Array.from(String(row.text ?? '')).slice(0, 120).join(''),
+          created_at: row.created_at,
+        })),
+      };
+    },
+
+    sample({ n = 5 } = {}) {
+      const take = Math.max(1, Math.min(50, Number(n) || 5));
+      const rows = main
+        .prepare('SELECT id, text, recorded_at AS created_at FROM memories ORDER BY RANDOM() LIMIT ?')
+        .all(take);
+      return {
+        n: take,
+        items: rows.map((row) => ({
+          id: row.id,
+          text: Array.from(String(row.text ?? '')).slice(0, 120).join(''),
+          created_at: row.created_at,
+        })),
+      };
+    },
+
     ingest(input = {}, caller = {}) {
       assertCaller(caller);
       const source = String(input.source ?? '').trim();
