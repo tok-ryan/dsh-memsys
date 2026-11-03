@@ -5,6 +5,32 @@ import { withImmediate } from '../storage/open.mjs';
 import { appendRelation } from '../storage/repositories.mjs';
 import { WriteError } from '../write/authority.mjs';
 
+export function verifyPointerSource({ row, match, observationText }) {
+  if (!match?.file || !match?.span) return { ok: false, reason: 'no_file_version_evidence' };
+  const start = Number(match.span.start);
+  const end = Number(match.span.end);
+  let bytes;
+  try {
+    bytes = fs.readFileSync(match.file);
+  } catch (err) {
+    return { ok: false, reason: 'file_unreadable', error: err.message };
+  }
+  if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > bytes.length || start >= end) {
+    return { ok: false, reason: 'span_out_of_range' };
+  }
+  const slice = bytes.slice(start, end);
+  const spanHash = crypto.createHash('sha256').update(slice).digest('hex');
+  if (spanHash !== match.spanHash) return { ok: false, reason: 'span_hash_mismatch' };
+  const fileHash = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (match.fileHash && fileHash !== match.fileHash) return { ok: false, reason: 'file_hash_mismatch' };
+  if (match.location !== `${match.file}#bytes:${start}-${end}`) return { ok: false, reason: 'location_not_byte_binding' };
+  if (typeof observationText !== 'string' || slice.toString('utf8') !== observationText) {
+    return { ok: false, reason: 'observation_text_mismatch' };
+  }
+  if (match.versionHash !== row.source_version_hash) return { ok: false, reason: 'version_hash_mismatch' };
+  return { ok: true, spanHash, fileHash, observationText };
+}
+
 /** Match the imported source version, never "the latest path with this name". */
 export function planPointers({ main, clock }, versionsFile) {
   const parsed = JSON.parse(fs.readFileSync(versionsFile, 'utf8'));
@@ -35,28 +61,14 @@ export function planPointers({ main, clock }, versionsFile) {
       skipped.push({ sourceObjectId: row.source_object_id, reason: 'no_version_match' });
       continue;
     }
-    if (!match.file || !match.span || !match.spanHash) {
-      skipped.push({ sourceObjectId: row.source_object_id, reason: 'no_file_version_evidence' });
+    const observationId = targets[0];
+    const observation = observationId ? main.prepare('SELECT * FROM observations WHERE id = ?').get(observationId) : null;
+    const observed = verifyPointerSource({ row, match, observationText: observation?.text });
+    if (!observed.ok) {
+      skipped.push({ sourceObjectId: row.source_object_id, reason: observed.reason, error: observed.error });
       continue;
     }
-    let spanHash = null;
-    try {
-      const bytes = fs.readFileSync(match.file);
-      const start = Number(match.span.start);
-      const end = Number(match.span.end);
-      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > bytes.length || start >= end) {
-        skipped.push({ sourceObjectId: row.source_object_id, reason: 'span_out_of_range' });
-        continue;
-      }
-      spanHash = crypto.createHash('sha256').update(bytes.slice(start, end)).digest('hex');
-    } catch (err) {
-      skipped.push({ sourceObjectId: row.source_object_id, reason: 'file_unreadable', error: err.message });
-      continue;
-    }
-    if (spanHash !== match.spanHash) {
-      skipped.push({ sourceObjectId: row.source_object_id, reason: 'span_hash_mismatch' });
-      continue;
-    }
+    const spanHash = observed.spanHash;
     const pointer = main.prepare('SELECT * FROM pointers WHERE memory_id = ?').get(memoryId);
     if (pointer?.status === 'exact' && pointer.location === match.location) {
       skipped.push({ sourceObjectId: row.source_object_id, reason: 'already_exact' });
@@ -73,6 +85,8 @@ export function planPointers({ main, clock }, versionsFile) {
       file: match.file,
       span: match.span,
       spanHash,
+      sourceFileHash: observed.fileHash,
+      observationHash: payloadHash(observed.observationText),
       revision,
     };
     items.push({
@@ -91,8 +105,36 @@ export function planPointers({ main, clock }, versionsFile) {
 }
 
 export function applyPointers({ main, clock }, plan) {
+  const recomputed = payloadHash({ policy: 'legacy-v1', items: plan.items, skipped: plan.skipped });
+  if (recomputed !== plan.planHash) throw new WriteError('plan_hash_mismatch');
   const applied = [];
   for (const item of plan.items) {
+    let bytes;
+    try {
+      bytes = fs.readFileSync(item.payload.file);
+    } catch (err) {
+      throw new WriteError('source_unreadable', { memoryId: item.memoryId, error: err.message });
+    }
+    const start = Number(item.payload.span.start);
+    const end = Number(item.payload.span.end);
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end > bytes.length || start >= end) {
+      throw new WriteError('source_span_changed', { memoryId: item.memoryId });
+    }
+    const spanHash = crypto.createHash('sha256').update(bytes.slice(start, end)).digest('hex');
+    const fileHash = crypto.createHash('sha256').update(bytes).digest('hex');
+    const evidence = main
+      .prepare('SELECT observation_id FROM evidence WHERE memory_id = ? ORDER BY id LIMIT 1')
+      .get(item.memoryId);
+    const observation = evidence?.observation_id
+      ? main.prepare('SELECT text FROM observations WHERE id = ?').get(evidence.observation_id)
+      : null;
+    if (
+      spanHash !== item.payload.spanHash ||
+      fileHash !== item.payload.sourceFileHash ||
+      payloadHash(observation?.text ?? '') !== item.payload.observationHash
+    ) {
+      throw new WriteError('source_bytes_changed', { memoryId: item.memoryId });
+    }
     const exists = main
       .prepare(
         "SELECT payload FROM relations WHERE type = 'pointer-change' AND json_extract(payload, '$.memoryId') = ? AND json_extract(payload, '$.basis') = 'pointer-backfill'",

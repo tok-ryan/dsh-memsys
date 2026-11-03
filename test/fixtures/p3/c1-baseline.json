@@ -1,0 +1,90 @@
+{
+  "capturedAt": "2026-11-02T17:32:36.368Z",
+  "source": "P3-C1 pre-flight (plan-3 §2/§5.4)",
+  "protected_inputs": {
+    "whale-unify/memsys-design-v0.38.md": {
+      "bytes": 99880,
+      "sha256": "511cbd8ce3db4ff92706c641449ad83b195d4bd37f17b1b50a43e4847f028ac9"
+    },
+    "whale-unify/_build/contract.md": {
+      "bytes": 3520,
+      "sha256": "e3efb6588da5550cc1a526a31f0375b10abfc314a921ea8342a4b0d25396ff10"
+    },
+    "whale-unify/_build/plan-1.md": {
+      "bytes": 65433,
+      "sha256": "8b6572a59f9c968844f2a524202bf61bfb2a39f6d095961d6f849387cdfcf999"
+    },
+    "whale-unify/_build/plan-2.md": {
+      "bytes": 61363,
+      "sha256": "49e1cdec8f6fda36e40e27c0d1ce90e167c2cd77002608b8864b40fd3061fdc2"
+    },
+    "whale-unify/_build/plan-3.md": {
+      "bytes": 64985,
+      "sha256": "498550e1fe24fd075c43940a59dcf47d18ae19b7a914e2b0be917cf33578b3d6"
+    },
+    "whale-unify/_build/report-1.md": {
+      "bytes": 3448,
+      "sha256": "9a94435b1e61c2cd6c1dfe347eaac6669657239a364fcc3597c2892550e4d736"
+    },
+    "whale-unify/_build/report-2.md": {
+      "bytes": 3572,
+      "sha256": "42e00e3c7fbc50b3512362d2af8bfa68995fcb53faacd5f9c1d82439cb5e0c12"
+    },
+    "whale-unify/_build/decisions.md": {
+      "bytes": 10587,
+      "sha256": "2cbdda67546ea3b1dd8ded1b3355d47148c43cdad0d0bbe0a962e403debb434e"
+    }
+  },
+  "migrations": {
+    "control-001.sql": {
+      "bytes": 3504,
+      "sha256": "1b1e865dee83757213e7b5b09cd20d0ff19b4dd5ec53efb495205255b32e9f93"
+    },
+    "control-002.sql": {
+      "bytes": 3268,
+      "sha256": "df684d926d49b0c209d05ede4b533f46f0942ca80866a3d4bf54d05eb06d493c"
+    },
+    "control-003.sql": {
+      "bytes": 351,
+      "sha256": "7cf225bb30a80fb5ec7655bc6ad26ec5e296fd9edb86ea162770d3c418b56e32"
+    },
+    "dream-001.sql": {
+      "bytes": 370,
+      "sha256": "ac87b2becc5636645a4dcd14947040503091529eef114e9f589bea56ea1cc31e"
+    },
+    "main-001.sql": {
+      "bytes": 14497,
+      "sha256": "062d36f2651fc0ef55c3b329dd00ffff45ad0564d40d82fedffa7dfe75391bee"
+    },
+    "main-002.sql": {
+      "bytes": 3023,
+      "sha256": "dbbe52c06365c5903130283d22c295d0cc06492a6d9ee6a5f1702af6f789d96b"
+    },
+    "main-003.sql": {
+      "bytes": 706,
+      "sha256": "315330ffc9ffcfeecec7bf841688228630fd105b421d167ec080b559703ab633"
+    },
+    "main-004.sql": {
+      "bytes": 1285,
+      "sha256": "0a585a2115325db8d413e45ae97d287e77af061f435c77b528e9460dd1c33bba"
+    },
+    "main-005.sql": {
+      "bytes": 4675,
+      "sha256": "686a185473ed35c714768c9106a0f5165a14ee05a6f89c76be457894b0c81258"
+    },
+    "main-006.sql": {
+      "bytes": 1162,
+      "sha256": "695f0ad844bd6fb91813fc785ddebe1b1e6fa741300e89aff214250bd6389c1f"
+    }
+  },
+  "expected_versions_before": {
+    "main": 6,
+    "control": 3,
+    "dream": 1
+  },
+  "expected_versions_c1": {
+    "main": 7,
+    "control": 4,
+    "dream": 2
+  }
+}

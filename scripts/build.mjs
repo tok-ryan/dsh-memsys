@@ -12,7 +12,8 @@ function walk(dir, out = []) {
     if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(full, out);
-    else if (entry.name.endsWith('.mjs')) out.push(full);
+    else if (entry.name.endsWith('.mjs') || (entry.name.endsWith('.js') && entry.name !== 'client.js')) out.push(full);
+    else if (entry.name === 'client.js') out.push(full);
   }
   return out;
 }

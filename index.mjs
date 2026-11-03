@@ -12,13 +12,64 @@ import { createFeedHandler } from './src/tools/feed.mjs';
 import { createSelfHandler } from './src/tools/self.mjs';
 import { createRecordHandler } from './src/tools/record.mjs';
 import { runtimeFromExec } from './src/runtime/identity.mjs';
+import { createSummaryHandler, resolveAutoInject, writeUiConfig } from './src/runtime/summary.mjs';
 
 export const name = 'dsh-memsys';
 /** tools is a real host service; static inject is the verified registration path. */
 export const inject = ['tools'];
 
-function createHostHandlers(config = {}, ctx = null) {
+/**
+ * `auto_inject` has three ranks, highest first:
+ *   1. `<data_dir>/ui-config.json` — written by the settings switch;
+ *   2. the profile patch config (`config.auto_inject`);
+ *   3. `false`.
+ * The file wins so a toggle survives a restart without rewriting the profile,
+ * and the in-memory value is applied immediately (no restart).
+ */
+function createUiState(config = {}, logger = console) {
   const dataDir = config.data_dir ?? process.env.MEMSYS_DATA_DIR ?? null;
+  let state = resolveAutoInject({ dataDir, profileValue: config.auto_inject, logger });
+  return {
+    dataDir,
+    get autoInject() {
+      return state.value;
+    },
+    get source() {
+      return state.source;
+    },
+    set autoInject(value) {
+      state = { value: value === true, source: 'ui-config' };
+    },
+    sync: () => {},
+  };
+}
+
+function createHostHandlers(config = {}, ctx = null, ui = null) {
+  const dataDir = config.data_dir ?? process.env.MEMSYS_DATA_DIR ?? null;
+  const uiState = ui ?? {
+    get autoInject() {
+      return config.auto_inject === true;
+    },
+    get source() {
+      return typeof config.auto_inject === 'boolean' ? 'profile' : 'default';
+    },
+    set autoInject(_value) {},
+    sync: () => {},
+  };
+  const uiSummary = createSummaryHandler({
+    main: () => db().main,
+    dataDir,
+    getAutoInject: () => ({ value: uiState.autoInject, source: uiState.source }),
+    onAutoInject: (next) => {
+      if (!writeUiConfig(dataDir, next)) {
+        const err = new Error('data_dir_missing');
+        err.code = 'data_dir_missing';
+        throw err;
+      }
+      uiState.autoInject = next;
+      uiState.sync();
+    },
+  });
   let handles = null;
   const db = () => {
     if (!dataDir) {
@@ -67,6 +118,7 @@ function createHostHandlers(config = {}, ctx = null) {
     memsys_project_get: (args) => createProjectHandler({ main: db().main, clock: systemClock }).get(args),
     memsys_self_get: (args) => createSelfHandler({ main: db().main, clock: systemClock }).get(args),
     memsys_feed: (args) => createFeedHandler({ clock: systemClock }).feed(args),
+    memsys_ui_summary: (req, res) => uiSummary(req, res),
     memsys_record: (args, exec) => {
       const identity = runtimeFromExec({ exec, ctx, tool: 'record', args });
       if (!identity.ok) return { status: 'error', code: identity.code, ...identity };
@@ -94,7 +146,8 @@ function createHostHandlers(config = {}, ctx = null) {
  * section exists only for the isolated probe profile.
  */
 export async function apply(ctx, config = {}) {
-  const handlers = createHostHandlers(config, ctx);
+  const ui = createUiState(config);
+  const handlers = createHostHandlers(config, ctx, ui);
   const registration = await registerHostTools({ ctx, handlers });
   const toolProbe = process.env.MEMSYS_TOOL_PROBE ?? null;
   const writeToolProbe = (deferred) => {
@@ -235,19 +288,55 @@ export async function apply(ctx, config = {}) {
     write();
   }
 
-  const autoInject = config.auto_inject === true;
+  if (typeof ctx?.inject === 'function') {
+    try {
+      ctx.inject(['webServer'], (web) => {
+        web.effect(
+          () =>
+            web.webServer.register({
+              kind: 'exact',
+              path: '/dsh-memsys/api/summary',
+              handler: (req, res) => handlers.memsys_ui_summary(req, res),
+            }),
+          'memsys: ui summary route',
+        );
+        web.effect(
+          () =>
+            web.webServer.register({
+              kind: 'exact',
+              path: '/dsh-memsys/api/config',
+              handler: (req, res) => handlers.memsys_ui_summary(req, res),
+            }),
+          'memsys: ui config route',
+        );
+      });
+    } catch {
+      // profiles without webServer stay headless
+    }
+  }
   const diagnostic = config.diagnostic_section === true;
   let disposeSection = () => {};
-  if (autoInject || diagnostic) {
-    const getText = () =>
-      autoInject
-        ? '[memsys] 注入：tools-only（本批未取得宿主预算与回执，不作逐轮交付承诺）'
-        : '[memsys] diagnostic section（auto_inject=false）';
+  const syncSection = () => {
+    disposeSection();
+    disposeSection = () => {};
+    if (!ui.autoInject && !diagnostic) return;
     disposeSection = registerSection(ctx, {
-      getText,
+      getText: () =>
+        ui.autoInject
+          ? '[memsys] 注入：tools-only（本批未取得宿主预算与回执，不作逐轮交付承诺）'
+          : '[memsys] diagnostic section（auto_inject=false）',
       diagnosticMarker: process.env.MEMSYS_SECTION_PROBE ?? null,
     });
-  }
+  };
+  // A profile without systemPrompt (headless/embedded) must still boot the tools.
+  ui.sync = () => {
+    try {
+      syncSection();
+    } catch {
+      // keep the host half alive; the section is optional
+    }
+  };
+  ui.sync();
   return () => {
     disposeSection();
   };

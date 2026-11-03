@@ -1,6 +1,6 @@
 {
   "name": "dsh-memsys",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A memory system plugin for DeepSeek Harness: append-only facts, candidates and adjudication, dreams, and budget-aware context injection.",
   "license": "MIT",
   "repository": {
@@ -15,20 +15,35 @@
     "sqlite",
     "agent"
   ],
+  "homepage": "https://github.com/tok-ryan/dsh-memsys#readme",
+  "bugs": {
+    "url": "https://github.com/tok-ryan/dsh-memsys/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.13"
   },
   "exports": {
-    ".": "./index.mjs"
+    ".": "./index.mjs",
+    "./client": "./client.js"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
     }
   },
   "files": [
     "index.mjs",
+    "client.js",
     "cordis.patch.yml",
     "src",
     "scripts",

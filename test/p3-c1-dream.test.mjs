@@ -500,7 +500,7 @@ test('P3-C1 migration contract', async (t) => {
       }
       assert.deepEqual(versions, { main: 8, control: 4, dream: 2 });
       const baseline = JSON.parse(
-        fs.readFileSync(path.join(ROOT, '..', '_build', 'artifacts', 'p3', 'c1-baseline.json'), 'utf8'),
+        fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'p3', 'c1-baseline.json'), 'utf8'),
       );
       for (const [name, entry] of Object.entries(baseline.migrations)) {
         if (name === 'control-004.sql' || name === 'main-007.sql' || name === 'dream-002.sql') continue;

@@ -481,8 +481,27 @@ export function verifyPlan(deps, plan) {
       continue;
     }
     report.items += 1;
-    if (item.itemKind === 'graph_node') report.graph_nodes += 1;
-    if (item.itemKind === 'graph_edge') report.graph_edges += 1;
+    if (item.itemKind === 'graph_node') {
+      report.graph_nodes += 1;
+      const node = main.prepare('SELECT * FROM graph_nodes WHERE id = ?').get(item.payload.id);
+      if (!node) report.missing.push(`${item.itemId}:graph_node`);
+      else if (node.label !== item.payload.label || node.kind !== item.payload.kind || node.source_ref !== `node:${item.payload.id}`) {
+        report.missing.push(`${item.itemId}:graph_node_content`);
+      }
+    }
+    if (item.itemKind === 'graph_edge') {
+      report.graph_edges += 1;
+      const edge = main.prepare('SELECT * FROM graph_edges WHERE id = ?').get(item.payload.id);
+      if (!edge) report.missing.push(`${item.itemId}:graph_edge`);
+      else if (
+        edge.from_id !== item.payload.from ||
+        edge.to_id !== item.payload.to ||
+        edge.kind !== item.payload.kind ||
+        edge.source_ref !== `edge:${item.payload.id}`
+      ) {
+        report.missing.push(`${item.itemId}:graph_edge_content`);
+      }
+    }
     if (item.itemKind === 'memory') {
       const targets = JSON.parse(row.target_ids);
       const observation = targets[0] ? getObservation(main, targets[0]) : null;

@@ -37,6 +37,19 @@ function dueDeadline(main, memoryId) {
   return queue?.deadline_at ?? null;
 }
 
+/** Merge may not silently erase due semantics; anything due-bearing is refused. */
+function assertMergeAdmissible(main, memory) {
+  if (['open', 'pending-due', 'pending-done', 'cooled-due', 'shelved-due', 'done', 'dropped'].includes(memory.due_state)) {
+    throw new WriteError('blocked_by_due_state', { memoryId: memory.id, dueState: memory.due_state });
+  }
+  if (memory.type === 'promise') {
+    throw new WriteError('blocked_by_due_state', { memoryId: memory.id, reason: 'promise' });
+  }
+  if (memory.due_at || dueDeadline(main, memory.id)) {
+    throw new WriteError('blocked_by_due_state', { memoryId: memory.id, reason: 'deadline' });
+  }
+}
+
 /**
  * Mechanical exact merge only: no similarity, no NFKC, no negation stripping.
  * Endpoints must be active, resolved and accepted; dream-linked rows only yield a
@@ -58,9 +71,7 @@ export function mergeExact(deps, { runtime, ids }) {
     }
   }
   for (const memory of memories) {
-    if (['open', 'pending-due', 'pending-done', 'cooled-due', 'shelved-due'].includes(memory.due_state)) {
-      throw new WriteError('blocked_by_due_state', { memoryId: memory.id, dueState: memory.due_state });
-    }
+    assertMergeAdmissible(main, memory);
     if (memory.key_status !== 'resolved') throw new WriteError('unresolved_forbidden', { memoryId: memory.id });
     if (memory.binding_status !== 'accepted') throw new WriteError('binding_not_accepted', { memoryId: memory.id });
   }
@@ -163,6 +174,10 @@ export function mergeExact(deps, { runtime, ids }) {
   };
   let returnStorage = null;
   withImmediate(main, () => {
+    for (const id of unique) {
+      const fresh = getMemory(main, id);
+      assertMergeAdmissible(main, fresh);
+    }
     insertObservation(main, {
       id: observationId,
       idempotency_key: `obs:merge:${mergeKey}`,

@@ -178,8 +178,10 @@ async function main() {
     required(deploymentDir, 'USAGE: activate --plan <plan.json> --data-dir <dir> --restore-report <report.json> --deployment-dir <dir>');
     const activateTarget = openTarget(dataDir);
     let businessRows = null;
+    let databaseFreeze = null;
     try {
       businessRows = rollback.snapshotBusinessRows(activateTarget.handles.main);
+      databaseFreeze = rollback.snapshotDatabaseFreeze(activateTarget.handles);
     } finally {
       closeAll(activateTarget.handles);
     }
@@ -193,6 +195,7 @@ async function main() {
         restoreBatch: restore.selected_batch,
         business_counts: businessRows?.counts ?? null,
         business_rows: businessRows,
+        db_freeze: databaseFreeze,
         activatedAt: systemClock.at().at,
       }, null, 2)}\n`,
       'utf8',
@@ -225,6 +228,7 @@ async function main() {
     }
     const restored = openAll(resolveConfig({ dataDir: restoredDir }));
     let comparison;
+    let freezeComparison = { ok: true, missing: [] };
     try {
       comparison = config.business_rows
         ? rollback.compareBusinessRows({ db: restored.main, baseline: config.business_rows })
@@ -232,11 +236,17 @@ async function main() {
             db: restored.main,
             expected: config.business_counts ?? {},
           });
+      if (config.db_freeze) {
+        freezeComparison = rollback.compareDatabaseFreeze(
+          { main: restored.main, control: restored.control, dream: restored.dream },
+          config.db_freeze,
+        );
+      }
     } finally {
       closeAll(restored);
     }
-    if (!comparison.ok) {
-      console.log(`ROLLBACK_CHECK_FAILED business_missing=${comparison.missing.join(',')}`);
+    if (!comparison.ok || !freezeComparison.ok) {
+      console.log(`ROLLBACK_CHECK_FAILED business_missing=${comparison.missing.join(',')} freeze_missing=${freezeComparison.missing.join(',')}`);
       process.exitCode = 1;
       return;
     }

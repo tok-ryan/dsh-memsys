@@ -125,7 +125,7 @@ record('profile_prepared', dumpBefore.status === 0, {
 // 2. Stage an ASCII copy; the live source tree is never linked into a profile.
 fs.rmSync(STAGE, { recursive: true, force: true });
 fs.mkdirSync(STAGE, { recursive: true });
-for (const name of ['package.json', 'index.mjs', 'cordis.patch.yml']) {
+for (const name of ['package.json', 'index.mjs', 'client.js', 'cordis.patch.yml']) {
   fs.copyFileSync(path.join(ROOT, name), path.join(STAGE, name));
 }
 fs.cpSync(path.join(ROOT, 'src'), path.join(STAGE, 'src'), { recursive: true });
