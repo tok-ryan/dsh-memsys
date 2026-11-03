@@ -2,8 +2,15 @@ import fs from 'node:fs';
 import { registerSection } from './src/runtime/inject.mjs';
 import { registerHostTools, toolCapabilityStatus } from './src/runtime/tools.mjs';
 import { openAll, closeAll } from './src/storage/open.mjs';
-import { resolveConfig } from './src/config.mjs';
+import {
+  PERSONA_MAX_CHARS,
+  PERSONA_SECTION_NAME,
+  PERSONA_SECTION_ORDER,
+  resolveConfig,
+  resolveDataDir,
+} from './src/config.mjs';
 import { migrateAll } from './src/storage/migrate.mjs';
+import { createPersonaHandler, createPersonaStore } from './src/runtime/persona.mjs';
 import { systemClock } from './src/clock.mjs';
 import { createReadHandler } from './src/tools/read.mjs';
 import { createProjectHandler } from './src/tools/project.mjs';
@@ -11,6 +18,7 @@ import { createDreamHandler } from './src/tools/dream.mjs';
 import { createFeedHandler } from './src/tools/feed.mjs';
 import { createSelfHandler } from './src/tools/self.mjs';
 import { createRecordHandler } from './src/tools/record.mjs';
+import { createQuizHandler } from './src/tools/quiz.mjs';
 import { runtimeFromExec } from './src/runtime/identity.mjs';
 import { createSearchHandler, createSummaryHandler } from './src/runtime/summary.mjs';
 import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime/ui-config.mjs';
@@ -41,7 +49,18 @@ export const inject = ['tools'];
  * and the in-memory map is applied immediately (no restart).
  */
 function createUiState(config = {}, logger = console) {
-  const dataDir = config.data_dir ?? process.env.MEMSYS_DATA_DIR ?? null;
+  // One resolver decides the directory (0.3.0: ~/.dsh/memsys). A profile
+  // `data_dir` still works for one release but is deprecated, not the norm.
+  const dataDir = resolveDataDir(config);
+  if (typeof config.data_dir === 'string' && config.data_dir.trim().length > 0) {
+    try {
+      logger?.warn?.(
+        `[dsh-memsys] config.data_dir 已废弃（0.3.0 起数据目录默认 ~/.dsh/memsys）；旧数据请运行 node scripts/migrate-datadir.mjs --from "${config.data_dir}"`,
+      );
+    } catch {
+      // a logger that throws must never break boot
+    }
+  }
   const detail = resolveModulesDetail({ dataDir, profileConfig: config, logger });
   // One stable object: host tools capture it at registration, so a POST has to
   // mutate it in place or the call-time gates would keep reading stale values.
@@ -70,7 +89,7 @@ function createUiState(config = {}, logger = console) {
 }
 
 function createHostHandlers(config = {}, ctx = null, ui = null) {
-  const dataDir = config.data_dir ?? process.env.MEMSYS_DATA_DIR ?? null;
+  const dataDir = ui?.dataDir ?? resolveDataDir(config);
   const uiState = ui ?? {
     get modules() {
       return mergeModules(config, null);
@@ -90,11 +109,6 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
     dataDir,
     getConfig: () => ({ modules: uiState.modules, source: uiState.source, inject: uiState.injectStatus() }),
     onConfig: (patch) => {
-      if (!dataDir) {
-        const err = new Error('data_dir_missing');
-        err.code = 'data_dir_missing';
-        throw err;
-      }
       const written = writeUiConfig(dataDir, patch);
       uiState.apply(written);
       uiState.sync();
@@ -103,11 +117,6 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
   });
   let handles = null;
   const db = () => {
-    if (!dataDir) {
-      const err = new Error('data_dir_missing');
-      err.code = 'data_dir_missing';
-      throw err;
-    }
     if (!handles) {
       handles = openAll(resolveConfig({ dataDir }));
       migrateAll(handles, { clock: systemClock });
@@ -149,6 +158,7 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
     memsys_project_get: (args) => createProjectHandler({ main: db().main, clock: systemClock }).get(args),
     memsys_self_get: (args) => createSelfHandler({ main: db().main, clock: systemClock }).get(args),
     memsys_feed: (args) => createFeedHandler({ clock: systemClock }).feed(args),
+    memsys_quiz: (args) => createQuizHandler({ main: db().main, clock: systemClock }).run(args),
     memsys_ui_summary: (req, res) => uiSummary(req, res),
     memsys_ui_search: (req, res) => uiSearch(req, res),
     // Cross-plugin surface: `ctx.provide('memsys', …)` exposes this instance.
@@ -183,6 +193,25 @@ export async function apply(ctx, config = {}) {
   const ui = createUiState(config);
   const handlers = createHostHandlers(config, ctx, ui);
   const registration = await registerHostTools({ ctx, handlers, modules: ui.modules });
+
+  // Persona: versioned text under `<dataDir>/persona/`, owner-only writes, with
+  // its own section that always assembles before the memory section.
+  const persona = createPersonaStore({
+    dataDir: ui.dataDir,
+    maxChars: config.persona_max_chars ?? PERSONA_MAX_CHARS,
+    logger: ctx?.logger ?? console,
+  });
+  const personaHandler = createPersonaHandler({
+    store: persona,
+    logger: ctx?.logger ?? console,
+    onSaved: () => {
+      try {
+        ui.sync();
+      } catch {
+        // the new version is already on disk; a refresh failure is not a save failure
+      }
+    },
+  });
 
   // Optional cross-plugin service: other plugins reach memsys through
   // `ctx.get('memsys')`. Registration needs `ctx.provide`; a profile (or a fake
@@ -402,16 +431,41 @@ export async function apply(ctx, config = {}) {
             }),
           'memsys: ui search route',
         );
+        web.effect(
+          () =>
+            web.webServer.register({
+              kind: 'exact',
+              path: '/dsh-memsys/api/persona',
+              handler: (req, res) => personaHandler(req, res),
+            }),
+          'memsys: ui persona route',
+        );
       });
     } catch {
       // profiles without webServer stay headless
     }
   }
   const diagnostic = config.diagnostic_section === true;
+  let disposePersona = () => {};
   let disposeSection = () => {};
   const syncSection = () => {
+    disposePersona();
+    disposePersona = () => {};
     disposeSection();
     disposeSection = () => {};
+    // Persona is part of context injection, so it follows the same master
+    // switch. It is registered first (order 400) so it always assembles before
+    // the memory section (order 500); `persona_section:false` only drops it.
+    if (ui.modules.context !== false && config.persona_section !== false) {
+      if (persona.sectionText()) {
+        disposePersona = registerSection(ctx, {
+          name: PERSONA_SECTION_NAME,
+          order: PERSONA_SECTION_ORDER,
+          getText: () => persona.sectionText() ?? '',
+          dynamicText: true,
+        });
+      }
+    }
     // The section is owned by the `context` module; the probe profile may force
     // a diagnostic section even while injection is off.
     if (ui.modules.context === false && !diagnostic) return;
@@ -435,6 +489,7 @@ export async function apply(ctx, config = {}) {
   };
   ui.sync();
   return () => {
+    disposePersona();
     disposeSection();
     injector?.dispose?.();
   };

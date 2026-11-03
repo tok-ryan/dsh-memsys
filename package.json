@@ -1,7 +1,7 @@
 {
   "name": "dsh-memsys",
-  "version": "0.2.3",
-  "description": "A memory system plugin for DeepSeek Harness: append-only facts, candidates and adjudication, dreams, and budget-aware context injection.",
+  "version": "0.3.0",
+  "description": "A memory system plugin for DeepSeek Harness: append-only facts, candidates and adjudication, dreams, spaced-repetition quizzes, a versioned persona, and budget-aware context injection.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -45,6 +45,7 @@
     "index.mjs",
     "client.js",
     "cordis.patch.yml",
+    "persona",
     "src",
     "scripts",
     "test"

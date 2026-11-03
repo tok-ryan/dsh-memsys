@@ -25,9 +25,28 @@ export function assertDailyRuntime(runtime) {
   return runtime;
 }
 
+/**
+ * The two trusted roles the owner channel may present.
+ * `owner` is the human-operated settings/CLI channel; `master` is the historical
+ * name for the same authority in receipts. Never derived from model parameters.
+ */
+export const OWNER_RUNTIME_ROLES = Object.freeze(['owner', 'master']);
+
+/**
+ * Persona edits (and anything else only 主人 may change) enter through this
+ * judge. It lives here, next to `assertDailyRuntime`, so there is exactly one
+ * permission layer; a model-supplied role can never satisfy it.
+ */
+export function assertOwnerRuntime(caller) {
+  if (!caller || typeof caller !== 'object') throw new WriteError('invalid_runtime');
+  if (!OWNER_RUNTIME_ROLES.includes(caller.role)) {
+    throw new WriteError('invalid_role', { role: caller.role ?? null });
+  }
+  return caller;
+}
+
 /** Owner-only actions are closed in batch 1; never fake an executed action. */
-export const OWNER_ACTIONS = Object.freeze([
-  'demote',
+export const OWNER_ACTIONS = Object.freeze(['demote',
   'corrected',
   'due-open',
   'due-confirm',

@@ -4,3 +4,7 @@
       config:
         auto_inject: false
         diagnostic_section: false
+        # Persona section (memsys:persona, order 400) must assemble before the
+        # memory section (memsys:context, order 500). Set this to false to keep
+        # memory injection but drop the persona section entirely.
+        persona_section: true

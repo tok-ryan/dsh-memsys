@@ -29,12 +29,12 @@ function pendingMemory(ctx) {
   return memory;
 }
 
-test('P6/modules: defaults enable everything and register all 10 tools', () => {
+test('P6/modules: defaults enable everything and register all 11 tools', () => {
   const modules = resolveModules({});
   assert.deepEqual(modules, {
     context: true, read: true, write: true, dream: true, projects: true, due: true, feed: true,
   });
-  assert.equal(toolDefinitions({}, modules).length, 10);
+  assert.equal(toolDefinitions({}, modules).length, 11);
 });
 
 test('P6/modules: read=false removes read tools but keeps write/dream/feed', () => {

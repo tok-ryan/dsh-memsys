@@ -11,7 +11,10 @@ export const SECTION_ORDER = 500;
  * `dynamicText: true` registers the resolver itself so the host re-reads it per
  * assembly; the default keeps the historical one-shot string.
  */
-export function registerSection(ctx, { getText, diagnosticMarker = null, dynamicText = false } = {}) {
+export function registerSection(
+  ctx,
+  { getText, name = SECTION_NAME, order = SECTION_ORDER, diagnosticMarker = null, dynamicText = false } = {},
+) {
   if (!ctx || typeof ctx.inject !== 'function') {
     const err = new Error('invalid_ctx');
     err.code = 'invalid_ctx';
@@ -29,14 +32,16 @@ export function registerSection(ctx, { getText, diagnosticMarker = null, dynamic
     // profile: two assemblies produced probe-1 then probe-2). A static string
     // would freeze the first round forever.
     const text = dynamicText ? resolve : resolve();
-    c.systemPrompt.section({ name: SECTION_NAME, order: SECTION_ORDER, text });
+    // `name`/`order` default to the historical memory section, so the persona
+    // section can reuse the same verified call shape without a second copy.
+    c.systemPrompt.section({ name, order, text });
     if (diagnosticMarker) {
       fs.writeFileSync(
         diagnosticMarker,
         JSON.stringify(
           {
-            name: SECTION_NAME,
-            order: SECTION_ORDER,
+            name,
+            order,
             text_length: String(resolve()).length,
             dynamic: dynamicText === true,
             registered_at: new Date().toISOString(),

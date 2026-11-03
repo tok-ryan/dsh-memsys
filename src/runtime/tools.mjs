@@ -16,11 +16,25 @@ export const MEMSYS_TOOLS = Object.freeze([
   'memsys_dream_record',
   'memsys_organize',
   'memsys_feed',
+  'memsys_quiz',
 ]);
 
 const P = (type, description, extra = {}) => ({ type, description, ...extra });
 
 export const TOOL_SPECS = Object.freeze({
+  memsys_quiz: {
+    description:
+      'Review a memory by exam. pick = recall question (no original text), challenge = spot the one altered detail, submit = grade an answer and record the attempt, status = progress summary. Exams never modify memories.',
+    parameters: {
+      mode: P('string', 'pick, challenge, submit or status', {
+        enum: ['pick', 'challenge', 'submit', 'status'],
+        required: true,
+      }),
+      id: P('string', 'Memory id returned by pick/challenge (submit)'),
+      answer: P('string', 'Your answer in your own words (submit)'),
+      kind: P('string', 'Which exam the answer belongs to', { enum: ['pick', 'challenge'] }),
+    },
+  },
   memsys_get: {
     description: 'Read memory items by explicit ids (current or history), with evidence and timeline.',
     parameters: {
@@ -233,6 +247,7 @@ export const TOOL_OUTPUT_SCHEMAS = Object.freeze({
   memsys_dream_record: openObject(),
   memsys_organize: openObject(),
   memsys_feed: openObject(),
+  memsys_quiz: openObject(),
 });
 
 function textRender(value) {
@@ -255,6 +270,9 @@ export function enabledToolNames(modules = null) {
     if (name === 'memsys_project_get') return enabled.read !== false && enabled.projects !== false;
     if (['memsys_dream_record', 'memsys_organize'].includes(name)) return enabled.dream !== false;
     if (name === 'memsys_feed') return enabled.feed !== false;
+    // Quiz rides the due module's switch: it is the same "bring it back at the
+    // right time" surface, and a separate module key would change MODULE_KEYS.
+    if (name === 'memsys_quiz') return enabled.due !== false;
     if (name === 'memsys_record') return true; // registered but call-gated for an explicit module_disabled
     return true;
   });

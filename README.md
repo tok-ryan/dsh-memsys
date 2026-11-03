@@ -1,6 +1,6 @@
 # dsh-memsys
 
-DeepSeek Harness 的长期记忆插件。事实只追加，候选可审，判断与裁决分开；记忆按预算注入上下文，支持项目、惦记、梦境与检索。
+DeepSeek Harness 的长期记忆插件。事实只追加，候选可审，判断与裁决分开；记忆按预算注入上下文，支持项目、惦记、梦境、检索，以及**间隔重复的复习考试**与**可版本化的人格**。
 
 零第三方运行时依赖，只使用 Node 内置的 `node:sqlite`。
 
@@ -10,9 +10,11 @@ DeepSeek Harness 的长期记忆插件。事实只追加，候选可审，判断
 - **三库分离**：主库（事实/候选/记忆/证据/关系）、控制库（操作/尝试/编译/快照/容量）、梦库。
 - **可靠提交**：预扣、写后读回、最多一次即时补写、连续失败冻结、跨重启恢复。
 - **按预算注入**：支持 full / compressed / grouped / protected_overflow 四种交付级别，快照分页可续。
+- **复习考试**：`memsys_quiz` 按 `1 / 4 / 16 / 64 / 256` 天间隔出题——复述题只给「我的理解」不给原话，辨伪题只改一处。考试只写自己的表，不碰记忆、不加 uses、不改裁决。
+- **人格版本化**：`persona/vN.md` 递增版本，注入时作为独立段落排在记忆段之前；只有主人能改，旧版本永不覆盖。
 - **检索与项目**：按关键词、场景、主题、时间检索；项目概览与版本；待确认惦记的审核分区。
-- **模块开关**：context / read / write / dream / projects / due / feed 七项独立开关。
-- **可选 Web UI**：左侧栏「记忆」面板、设置页模块开关；无 Web 服务时自动降级。
+- **模块开关**：context / read / write / dream / projects / due / feed 七项独立开关（复习考试跟随 `due`）。
+- **可选 Web UI**：左侧栏「记忆」面板（含 3D 玻璃球架）、设置页模块开关与人格编辑；无 Web 服务时自动降级。
 
 ## 环境要求
 
@@ -44,12 +46,11 @@ dsh --profile <profile> --dump-config
 
 ## 配置
 
-在 profile 的 patch 中配置：
+数据目录只有一处解析逻辑：默认 `~/.dsh/memsys`，可用 `MEMSYS_DATA_DIR` 环境变量或显式 `data_dir` 覆盖。
 
 ```yaml
 - id: memsys
   config:
-    data_dir: C:/path/to/memsys-data
     modules:
       context: true
       read: true
@@ -60,8 +61,9 @@ dsh --profile <profile> --dump-config
       feed: true
 ```
 
-- `data_dir`：三库与运行数据目录；未配置时插件不创建数据库。
+- `data_dir`：**0.3.0 起已废弃**，默认使用 `~/.dsh/memsys`。旧目录请先用 `node scripts/migrate-datadir.mjs --from <旧目录> --dry-run` 预演，再执行正式迁移。
 - `modules`：缺省为开启。安装后的默认行为是自动注入关闭（`context: false`），其余六项开启；可在设置页或 `ui-config.json` 中覆盖。
+- `persona_section`：是否注入 `memsys:persona` 段落（默认 `true`），顺序固定 400，在记忆段（500）之前。
 - 兼容旧配置：只有 `auto_inject: true` 时等价于 `modules.context: true`。
 
 配置优先级：
@@ -84,6 +86,17 @@ dsh --profile <profile> --dump-config
 | `memsys_dream_record` | 记录梦境与命题 |
 | `memsys_organize` | 精确合并或取代提案 |
 | `memsys_feed` | 信息流筛选（需要对应 provider） |
+| `memsys_quiz` | 复习考试：`pick` 出复述题 / `challenge` 出辨伪题 / `submit` 交卷判分 / `status` 看进度 |
+
+复习考试的一条完整回合：
+
+```text
+memsys_quiz { mode: "pick" }                       # 只给元信息 + 我的理解，不给原话
+memsys_quiz { mode: "submit", kind: "pick",
+              id: "<上一步返回的 id>",
+              answer: "凭印象复述的内容" }          # 交卷，level 按分数升降
+memsys_quiz { mode: "status" }                     # 考过 N 条 / 平均分 / 考砸几条 / 最差一条
+```
 
 关闭模块时：
 
@@ -91,24 +104,27 @@ dsh --profile <profile> --dump-config
 - `dream: false`：不注册梦境工具，梦不浮现。
 - `projects: false`：不注册项目读取工具。
 - `feed: false`：不注册信息流工具。
+- `due: false`：不注册复习考试工具。
 - `write: false`：写工具保留注册，但调用返回 `module_disabled`。
 
 ## Web UI
 
 安装后，Web GUI 会增加：
 
-- **左侧栏「记忆」**：记忆条数、候选条数、待确认惦记数，以及最近 5 条记忆。
-- **设置 →「记忆系统」**：模块开关与当前数据目录。
-- **数据接口**：`/dsh-memsys/api/summary` 与 `/dsh-memsys/api/config`，仅接受 loopback 与同源请求。
+- **左侧栏「记忆」**：记忆条数、候选条数、待确认惦记数，以及 3D 玻璃球架上的最近记忆（按记忆类型上色、按权重分层，点击展开内容）。
+- **设置 →「记忆系统」**：模块开关、当前数据目录，以及「人格」编辑块（保存为新版本、查看历史版本）。
+- **数据接口**：`/dsh-memsys/api/summary`、`/dsh-memsys/api/config`、`/dsh-memsys/api/persona`，仅接受 loopback 与同源请求。
 
 没有 `webServer` 服务时，host 半不激活 UI 路由，浏览器半也不会加载；headless profile 不受影响。
 
 ## 数据与备份
 
-- `memsys.db`：业务事实与证据。
+- 默认目录：`~/.dsh/memsys`（可用 `MEMSYS_DATA_DIR` 或显式 `data_dir` 覆盖）。
+- `memsys.db`：业务事实与证据，以及 `quiz_state` / `quiz_attempts`。
 - `control.db`：操作账、编译快照、容量与恢复。
 - `dreams.db`：梦境库。
 - 备份使用 SQLite 一致性备份；恢复校验会比较三库版本与关键表内容，不一致时失败。
+- 迁移旧数据：`node scripts/migrate-datadir.mjs --from <旧目录> [--dry-run]`，幂等、带 WAL 锁检测与内容校验，重复执行无副作用。
 
 ## 开发
 
@@ -117,11 +133,13 @@ npm test
 npm run build
 ```
 
-测试覆盖存储、写入、可靠提交、上下文编译、检索、项目、惦记、梦、导入、回退与模块闸门。
+测试覆盖存储、写入、可靠提交、上下文编译、检索、项目、惦记、梦、导入、回退、模块闸门，以及复习考试（调度 / 出题 / 判卷 / 工具面）与人格版本化。
 
 ## 设计边界
 
 - 模型不能直接写记忆，只能提交候选；确认与裁决属于主人侧动作。
+- 复习考试不改记忆、不加 uses、不改任何裁决字段；陈旧说法（corrected / superseded）默认不进题源。
+- 人格只有主人能改；旧版本只追加不覆盖。
 - 没有宿主回执时，交付状态保持 `unknown`，不假装已投递。
 - 证据必须能回到原始观察；来源不可读或字节范围变化时，门牌回填拒绝写入。
 - 自动注入是显式开关；关闭时只保留普通工具读取。
@@ -133,6 +151,7 @@ npm run build
 - `feed` 的生产 provider 未接。
 - 界面只在开发者本机目测过一次，未做多分辨率与暗色之外的主题验证。
 - 自动注入默认关闭（`context: false`），需要手动开启。
+- 3D 球架是 CSS 3D 实现（零依赖、无构建），不做真正的折射渲染。
 
 ## License
 

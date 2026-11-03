@@ -38,9 +38,20 @@ export function buildSummary(
   const db = typeof main === 'function' ? main() : main;
   const one = (sql, ...params) => Number(db.prepare(sql).get(...params)?.n ?? 0);
   const recent = db
-    .prepare('SELECT id, text FROM memories ORDER BY recorded_at DESC, id DESC LIMIT ?')
+    .prepare(
+      'SELECT id, text, type, weight, recorded_at FROM memories ORDER BY recorded_at DESC, id DESC LIMIT ?',
+    )
     .all(RECENT_LIMIT)
-    .map((row) => ({ id: row.id, text: truncate(row.text) }));
+    // type/weight/recorded_at ride along so the shelf can colour a ball by what
+    // kind of memory it is and size it by weight. They are additive: older
+    // clients that only read id/text are unaffected.
+    .map((row) => ({
+      id: row.id,
+      text: truncate(row.text),
+      type: row.type ?? null,
+      weight: typeof row.weight === 'number' ? row.weight : null,
+      recorded_at: row.recorded_at ?? null,
+    }));
   const effective = {};
   for (const key of MODULE_KEYS) effective[key] = modules?.[key] !== false;
   return {

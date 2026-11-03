@@ -83,7 +83,7 @@ test('P3-C2 migration keeps old rows byte-identical and gates mixed versions', a
       };
       assert.deepEqual(after, before);
       const version = Number(ctx.handles.main.prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v);
-      assert.equal(version, 8);
+      assert.equal(version, 9);
     } finally {
       closeAll(ctx.handles);
       fs.rmSync(ctx.dir, { recursive: true, force: true });

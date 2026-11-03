@@ -402,6 +402,7 @@ test('P6/UI: with webServer the two exact routes serve loopback and reject cross
         ['exact', '/dsh-memsys/api/summary'],
         ['exact', '/dsh-memsys/api/config'],
         ['exact', '/dsh-memsys/api/search'],
+        ['exact', '/dsh-memsys/api/persona'],
       ],
     );
 
@@ -419,7 +420,7 @@ test('P6/UI: with webServer the two exact routes serve loopback and reject cross
   }
 });
 
-test('P6/UI: read:false registers four tools and write:false answers module_disabled', async () => {
+test('P6/UI: read:false drops the read tools and write:false answers module_disabled', async () => {
   const handlers = { memsys_record: async () => ({ status: 'ok' }) };
   const defineTool = (spec) => spec;
 
@@ -431,10 +432,16 @@ test('P6/UI: read:false registers four tools and write:false answers module_disa
   };
 
   const all = await collect({ ...DEFAULT_MODULES });
-  assert.equal(all.length, 10, 'ten tools when every module is on');
+  assert.equal(all.length, 11, 'eleven tools when every module is on');
 
   const readOff = await collect({ ...DEFAULT_MODULES, read: false });
-  assert.deepEqual(readOff.sort(), ['memsys_dream_record', 'memsys_feed', 'memsys_organize', 'memsys_record']);
+  assert.deepEqual(readOff.sort(), [
+    'memsys_dream_record',
+    'memsys_feed',
+    'memsys_organize',
+    'memsys_quiz',
+    'memsys_record',
+  ]);
 
   const live = { ...DEFAULT_MODULES };
   const defs = [];
@@ -470,7 +477,8 @@ test('P6/UI: toggling context re-mounts the systemPrompt section immediately', a
 
   const dispose = await apply(ctx, { data_dir: dir }); // no profile config: context defaults to true
   try {
-    assert.equal(sections.length, 1, 'context is on by default, so the section mounts at boot');
+    // persona (order 400) mounts first, then the memory section (order 500).
+    assert.deepEqual(sections.map((section) => section.name), ['memsys:persona', 'memsys:context']);
 
     const post = (payload) => {
       const res = fakeRes();
@@ -485,11 +493,12 @@ test('P6/UI: toggling context re-mounts the systemPrompt section immediately', a
     };
 
     assert.equal(post({ modules: { context: false } }).statusCode, 200);
-    assert.equal(sections.length, 1, 'turning context off does not mount another section');
-    assert.ok(disposed >= 1, 'the mounted section was disposed');
+    assert.equal(sections.length, 2, 'turning context off does not mount another section');
+    assert.ok(disposed >= 2, 'both mounted sections were disposed');
 
     assert.equal(post({ modules: { context: true } }).statusCode, 200);
-    assert.equal(sections.length, 2, 'turning it back on mounts a fresh section');
+    assert.equal(sections.length, 4, 'turning it back on mounts both sections again');
+    assert.deepEqual(sections.slice(2).map((section) => section.name), ['memsys:persona', 'memsys:context']);
   } finally {
     dispose();
     // The injector keeps SQLite handles until the process exits; a locked temp
@@ -546,8 +555,10 @@ test('P6/UI: the registered section text carries a real memory id, and nothing m
   // injector only ever emits tools-only text and `context:true` is a dead shell.
   const disposeOn = await apply(on.host, { data_dir: ctx.dir, mode: 'work' });
   try {
-    assert.equal(on.sections.length, 1, 'context:true mounts exactly one section');
-    const registered = on.sections[0];
+    assert.equal(on.sections.length, 2, 'context:true mounts the persona section then the memory section');
+    assert.equal(on.sections[0].name, 'memsys:persona');
+    const registered = on.sections.find((section) => section.name === 'memsys:context');
+    assert.ok(registered, 'the memory section is still mounted');
     assert.equal(typeof registered.text, 'function', 'the section reads its text per assemble');
     const text = registered.text();
     assert.ok(text.includes(memory.id), 'the injected text carries the real memory id');

@@ -489,7 +489,7 @@ test('P3-C1 dream surface, public read and organize', async (t) => {
 });
 
 test('P3-C1 migration contract', async (t) => {
-  await t.test('versions reach current 8/4/2 with old SQL hashes unchanged', () => {
+  await t.test('versions reach current 9/4/2 with old SQL hashes unchanged', () => {
     const ctx = withContext(t);
     try {
       const versions = {};
@@ -498,7 +498,7 @@ test('P3-C1 migration contract', async (t) => {
           ctx.handles[label].prepare('SELECT MAX(version) AS v FROM schema_migrations').get().v,
         );
       }
-      assert.deepEqual(versions, { main: 8, control: 4, dream: 2 });
+      assert.deepEqual(versions, { main: 9, control: 4, dream: 2 });
       const baseline = JSON.parse(
         fs.readFileSync(path.join(ROOT, 'test', 'fixtures', 'p3', 'c1-baseline.json'), 'utf8'),
       );
@@ -519,10 +519,10 @@ test('P3-C1 migration contract', async (t) => {
       const cli = path.join(ROOT, 'scripts', 'migrate.mjs');
       const first = spawnSync(process.execPath, [cli, '--data-dir', dir, '--json'], { encoding: 'utf8' });
       assert.equal(first.status, 0, first.stderr);
-      assert.match(first.stderr, /MIGRATIONS_OK main=8 control=4 dream=2/);
+      assert.match(first.stderr, /MIGRATIONS_OK main=9 control=4 dream=2/);
       const payload = JSON.parse(first.stdout.trim());
-      assert.deepEqual(payload.versions, { main: 8, control: 4, dream: 2 });
-      assert.ok(payload.appliedNow.main.includes(8));
+      assert.deepEqual(payload.versions, { main: 9, control: 4, dream: 2 });
+      assert.ok(payload.appliedNow.main.includes(9));
       const second = spawnSync(process.execPath, [cli, '--data-dir', dir, '--json'], { encoding: 'utf8' });
       assert.equal(second.status, 0, second.stderr);
       const again = JSON.parse(second.stdout.trim());

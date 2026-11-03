@@ -7,9 +7,15 @@
  * lie.
  *
  * Priority: `<data_dir>/ui-config.json` > profile patch config > default (true).
+ *
+ * 0.3.0: the data directory comes from the one resolver in `src/config.mjs`
+ * (`~/.dsh/memsys` by default). A missing argument is no longer "no data dir" —
+ * it is the canonical directory, so the settings page works out of the box.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+
+import { defaultDataDir } from '../config.mjs';
 
 export const UI_CONFIG_FILE = 'ui-config.json';
 export const UI_CONFIG_VERSION = 2;
@@ -70,9 +76,16 @@ export function normalizeUiConfig(parsed, logger = console) {
   };
 }
 
+/**
+ * One file location for the switch store: `<dataDir>/ui-config.json`, with the
+ * canonical `~/.dsh/memsys` when the caller has no directory yet.
+ */
+export function uiConfigPath(dataDir) {
+  return path.join(dataDir || defaultDataDir(), UI_CONFIG_FILE);
+}
+
 export function readUiConfig(dataDir, logger = console) {
-  if (!dataDir) return null;
-  const file = path.join(dataDir, UI_CONFIG_FILE);
+  const file = uiConfigPath(dataDir);
   let raw = null;
   try {
     if (!fs.existsSync(file)) return null;
@@ -147,7 +160,7 @@ export function resolveModulesDetail({ dataDir = null, profileConfig = null, log
  * so v1 readers keep working.
  */
 export function writeUiConfig(dataDir, patch = {}, logger = console) {
-  if (!dataDir) return null;
+  const target = uiConfigPath(dataDir);
   const current = readUiConfig(dataDir, logger) ?? {
     version: UI_CONFIG_VERSION,
     auto_inject: DEFAULT_MODULES.context,
@@ -167,8 +180,7 @@ export function writeUiConfig(dataDir, patch = {}, logger = console) {
     auto_inject: next.context,
     modules: next,
   };
-  fs.mkdirSync(dataDir, { recursive: true });
-  const target = path.join(dataDir, UI_CONFIG_FILE);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
   const temp = `${target}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(normalized, null, 2), 'utf8');
   fs.renameSync(temp, target);
