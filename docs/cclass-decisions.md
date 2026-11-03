@@ -1,4 +1,4 @@
-﻿# C 类口径裁定
+# C 类口径裁定
 
 范围：B1／L6／B2；仅静态核对，不宣称测试通过。
 源码路径相对 whale-unify/memsys/，设计稿路径相对 whale-unify/。
