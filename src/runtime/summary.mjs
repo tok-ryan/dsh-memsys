@@ -20,10 +20,16 @@ const BODY_LIMIT = 4096;
 
 const truncate = (text) => Array.from(String(text ?? '')).slice(0, TEXT_LIMIT).join('');
 
-/** Three counts, the five latest memories, and the effective module map. */
+/** Three counts, the five latest memories, the module map, and injector health. */
 export function buildSummary(
   main,
-  { dataDir = null, modules = DEFAULT_MODULES, modulesSource = 'default', autoInject = undefined } = {},
+  {
+    dataDir = null,
+    modules = DEFAULT_MODULES,
+    modulesSource = 'default',
+    autoInject = undefined,
+    inject = { level: 'unavailable', reason: 'not_started' },
+  } = {},
 ) {
   const db = typeof main === 'function' ? main() : main;
   const one = (sql, ...params) => Number(db.prepare(sql).get(...params)?.n ?? 0);
@@ -43,6 +49,9 @@ export function buildSummary(
     auto_inject_source: modulesSource,
     modules: effective,
     modules_source: modulesSource,
+    // Without this the "on" switch can be a lie: the injector may be running on
+    // tools-only text because no tokenizer/H reached it.
+    inject: { level: inject?.level ?? 'unavailable', reason: inject?.reason ?? null },
   };
 }
 
@@ -88,6 +97,7 @@ export function createSummaryHandler({
       modules,
       source: current.source ?? 'default',
       auto_inject: modules?.context !== false,
+      inject: current.inject ?? { level: 'unavailable', reason: 'not_started' },
     };
   };
 
@@ -166,6 +176,7 @@ export function createSummaryHandler({
           modules: state.modules,
           modulesSource: state.source,
           autoInject: state.auto_inject,
+          inject: state.inject,
         }),
       );
     } catch (err) {

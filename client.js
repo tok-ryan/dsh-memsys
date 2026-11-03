@@ -179,6 +179,11 @@ window.__ModuleLoader__.load({
         h('p', { style: { opacity: 0.75, margin: '10px 0 0' } }, `数据目录：${state?.data_dir ?? '未配置'}`),
         h('p', { style: { opacity: 0.75, margin: '4px 0 0' } },
           `当前生效值来源：${SOURCE_LABEL[state?.modules_source] ?? state?.modules_source ?? '未知'}`),
+        // A switch that says "on" while the injector runs on tools-only text is a lie.
+        state?.inject && state.inject.level === 'unavailable'
+          ? h('p', { style: { margin: '4px 0 0', color: '#c46a00' } },
+            `自动注入没跑起来（${state.inject.reason ?? 'unknown'}）`)
+          : null,
         note ? h('p', { style: { opacity: 0.75, margin: '4px 0 0' } }, note) : null,
       );
     }

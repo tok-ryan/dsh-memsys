@@ -17,6 +17,15 @@ import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime
 import { createRoundInjector } from './src/runtime/inject-round.mjs';
 import { createMemSysService, provideMemSysService } from './src/runtime/service.mjs';
 import { compileRound } from './src/context/compile.mjs';
+import { conservativeTokens } from './src/context/budget.mjs';
+
+/**
+ * Conservative host budget for the round injector: `conservativeTokens` counts
+ * ceil(codepoints / 2), so 900 tokens ≈ 1800 characters of section text — enough
+ * for a small directory, small enough that injection never crowds out the task.
+ * A host that knows its real budget overrides this with `config.H`.
+ */
+const DEFAULT_HOST_BUDGET_TOKENS = 900;
 
 export const name = 'dsh-memsys';
 /** tools is a real host service; static inject is the verified registration path. */
@@ -53,6 +62,9 @@ function createUiState(config = {}, logger = console) {
       Object.assign(modules, written.modules);
       source = 'ui-config';
     },
+    // Overridden by `apply` once the injector exists; the settings page reads it
+    // through /api/summary so a dead injector is visible instead of silent.
+    injectStatus: () => ({ level: 'unavailable', reason: 'not_started' }),
     sync: () => {},
   };
 }
@@ -75,7 +87,7 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
   const uiSummary = createSummaryHandler({
     main: () => db().main,
     dataDir,
-    getConfig: () => ({ modules: uiState.modules, source: uiState.source }),
+    getConfig: () => ({ modules: uiState.modules, source: uiState.source, inject: uiState.injectStatus() }),
     onConfig: (patch) => {
       if (!dataDir) {
         const err = new Error('data_dir_missing');
@@ -198,8 +210,11 @@ export async function apply(ctx, config = {}) {
         dataDir: ui.dataDir,
         modules: ui.modules,
         compileRound,
-        tokenizer: config.tokenizer ?? null,
-        H: config.H ?? null,
+        // A profile patch cannot carry a function or a host number, so both
+        // default anyway: without them compileRound degrades to tools-only and
+        // the section becomes an empty shell that never injects a memory.
+        tokenizer: config.tokenizer ?? conservativeTokens,
+        H: config.H ?? DEFAULT_HOST_BUDGET_TOKENS,
         mode: config.mode ?? 'work',
       });
       try {
@@ -208,6 +223,12 @@ export async function apply(ctx, config = {}) {
         // a failed first compile must not stop the host half from booting
       }
     }
+  };
+  ui.injectStatus = () => {
+    if (ui.modules.context === false) return { level: 'disabled', reason: 'context_off' };
+    if (!injector) return { level: 'unavailable', reason: ui.dataDir ? 'injector_failed' : 'data_dir_missing' };
+    const level = injector.current?.().delivery_level ?? 'unavailable';
+    return { level, reason: level === 'unavailable' ? 'compile_unavailable' : null };
   };
   syncInjector();
   const toolProbe = process.env.MEMSYS_TOOL_PROBE ?? null;

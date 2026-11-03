@@ -103,6 +103,7 @@ test('P6/UI: modules default to all true and the summary exposes seven keys', (t
     'auto_inject_source',
     'candidates',
     'data_dir',
+    'inject',
     'memories',
     'modules',
     'modules_source',
@@ -540,12 +541,9 @@ test('P6/UI: the registered section text carries a real memory id, and nothing m
   };
 
   const on = capture();
-  const disposeOn = await apply(on.host, {
-    data_dir: ctx.dir,
-    tokenizer: conservativeTokens,
-    H: 20000,
-    mode: 'work',
-  });
+  // No explicit tokenizer/H: the plugin must default them, otherwise the
+  // injector only ever emits tools-only text and `context:true` is a dead shell.
+  const disposeOn = await apply(on.host, { data_dir: ctx.dir, mode: 'work' });
   try {
     assert.equal(on.sections.length, 1, 'context:true mounts exactly one section');
     const registered = on.sections[0];
@@ -553,6 +551,12 @@ test('P6/UI: the registered section text carries a real memory id, and nothing m
     const text = registered.text();
     assert.ok(text.includes(memory.id), 'the injected text carries the real memory id');
     assert.ok(text.length > 40, 'and it is not the empty/tools-only placeholder');
+
+    const summaryRes = fakeRes();
+    on.routes[0].handler(fakeReq({ headers: { host: '127.0.0.1:50478' } }), summaryRes);
+    const injectState = summaryRes.json().inject;
+    assert.notEqual(injectState.level, 'unavailable', 'the default tokenizer/H keep the injector alive');
+    assert.equal(injectState.reason, null);
   } finally {
     disposeOn();
   }
