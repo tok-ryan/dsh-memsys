@@ -1,0 +1,132 @@
+{
+  "label": "c-regraded",
+  "answers": "eval/answers20-c.json",
+  "rule": "contiguous>=4chars OR bigram_recall>=0.45",
+  "coverage": {
+    "got": 26,
+    "total": 52,
+    "ratio": 0.5
+  },
+  "rows": [
+    {
+      "id": "c01",
+      "k": "C",
+      "got": 1,
+      "total": 3
+    },
+    {
+      "id": "c02",
+      "k": "C",
+      "got": 1,
+      "total": 3
+    },
+    {
+      "id": "c03",
+      "k": "C",
+      "got": 3,
+      "total": 3
+    },
+    {
+      "id": "c04",
+      "k": "C",
+      "got": 1,
+      "total": 2
+    },
+    {
+      "id": "c05",
+      "k": "C",
+      "got": 3,
+      "total": 3
+    },
+    {
+      "id": "c06",
+      "k": "C",
+      "got": 1,
+      "total": 3
+    },
+    {
+      "id": "c07",
+      "k": "C",
+      "got": 0,
+      "total": 3
+    },
+    {
+      "id": "c08",
+      "k": "C",
+      "got": 0,
+      "total": 3
+    },
+    {
+      "id": "c09",
+      "k": "C",
+      "got": 2,
+      "total": 3
+    },
+    {
+      "id": "c10",
+      "k": "C",
+      "got": 1,
+      "total": 3
+    },
+    {
+      "id": "c11",
+      "k": "C",
+      "got": 2,
+      "total": 3
+    },
+    {
+      "id": "c12",
+      "k": "C",
+      "got": 2,
+      "total": 3
+    },
+    {
+      "id": "c13",
+      "k": "C",
+      "got": 2,
+      "total": 3
+    },
+    {
+      "id": "c14",
+      "k": "C",
+      "got": 1,
+      "total": 2
+    },
+    {
+      "id": "c15",
+      "k": "C",
+      "got": 2,
+      "total": 3
+    },
+    {
+      "id": "c16",
+      "k": "C",
+      "got": 1,
+      "total": 3
+    },
+    {
+      "id": "c17",
+      "k": "C",
+      "got": 0,
+      "total": 3
+    },
+    {
+      "id": "c18",
+      "k": "C",
+      "got": 1,
+      "total": 1
+    },
+    {
+      "id": "c19",
+      "k": "C",
+      "got": 1,
+      "total": 1
+    },
+    {
+      "id": "c20",
+      "k": "C",
+      "got": 1,
+      "total": 1
+    }
+  ]
+}

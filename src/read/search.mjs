@@ -1,4 +1,5 @@
 import { rankItems } from '../context/rank.mjs';
+import { expandTerms } from './expand.mjs';
 import { payloadHash } from '../identity.mjs';
 import { pageText } from './pager.mjs';
 
@@ -98,26 +99,37 @@ export function searchMemories({
     return { status: 'error', code: 'read_error', message: err.message, clock: reading };
   }
 
-  const terms = keywordTerms(keywords).map((term) => normalizeText(term));
-  const rankedQuery = terms.length <= 1 ? terms[0] ?? null : terms;
+  // 查询改写：整句 → 分词 + 同义扩展。扩展只用于放宽过滤面；
+  // 排序用「原问 + 扩展词」，这样口语问句也能把记忆里的书面说法排上来。
+  const rawQuery = keywordTerms(keywords)
+    .map((term) => String(term).trim())
+    .filter(Boolean)
+    .join(' ');
+  const { terms, added } = expandTerms(rawQuery);
+  const filterTerms = [...terms, ...added];
+  const rankedQuery = [rawQuery, ...added].filter(Boolean).join(' ') || null;
   const candidates = [];
   for (const row of rows) {
     if (scene && row.scene !== scene) continue;
     if (topicKey && row.topic_key !== topicKey) continue;
     const timeline = timelineOf(main, row.id);
     if (!timeMatches(timeline, timeRange)) continue;
-    if (terms.length > 0) {
+    if (filterTerms.length > 0) {
+      // why 与 detail 一直在检索面里；这里只把检索词放宽。
       const haystack = `${normalizeText(row.text)} ${normalizeText(row.detail ?? '')} ${normalizeText(row.why)}`;
-      if (!terms.some((term) => haystack.includes(term))) continue;
+      if (!filterTerms.some((term) => haystack.includes(term))) continue;
     }
     const pointer = main.prepare('SELECT * FROM pointers WHERE memory_id = ?').get(row.id) ?? null;
     candidates.push({ ...row, timeline, pointer });
   }
 
-  const ranked = rankItems(candidates, {
-    query: rankedQuery,
-    now: new Date(reading),
-  });
+  // 打分面用 text+detail+why（语义线索常写在 why 里），排完再还原成原 row，
+  // 保证返回体的 text 不被拼接过。
+  const candidateById = new Map(candidates.map((item) => [item.id, item]));
+  const ranked = rankItems(
+    candidates.map((item) => ({ ...item, text: `${item.text} ${item.detail ?? ''} ${item.why}` })),
+    { query: rankedQuery, now: new Date(reading) },
+  ).map((entry) => ({ ...entry, item: candidateById.get(entry.item.id) }));
   const directHits = ranked.map(({ item }) => item);
   let evidenceMean = null;
   if (directHits.length > 0) {

@@ -1,0 +1,275 @@
+{
+  "dataDir": "C:\\Users\\15728\\.dsh\\memsys",
+  "generated_at": "2026-11-04T00:00:00.000Z",
+  "retrieval": "searchMemories(keywords=ask, top5)",
+  "recall": {
+    "gold": 26,
+    "hit": 26
+  },
+  "index": [
+    {
+      "id": "c01",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c01-C.md",
+      "hit_ids": [
+        "mem_e959f4810c7b4bfad9dd82268e6961726c8aafe58f89dae9bfd693bf45256df0",
+        "mem_109095988b9c440d30e1b23234d56d63e05ba60a593f27f9ac5468144c672669",
+        "mem_d12f526b47a426abf7b6af0b2058b89710baca20e3446a9edca503923562cac2",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9",
+        "mem_5d494b81249e4011ce9fec91f7eb4368bf9c974c62c38672a829690e9ba5fd89"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 10
+    },
+    {
+      "id": "c02",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c02-C.md",
+      "hit_ids": [
+        "mem_e959f4810c7b4bfad9dd82268e6961726c8aafe58f89dae9bfd693bf45256df0",
+        "mem_d12f526b47a426abf7b6af0b2058b89710baca20e3446a9edca503923562cac2",
+        "mem_5d494b81249e4011ce9fec91f7eb4368bf9c974c62c38672a829690e9ba5fd89",
+        "mem_669dbb40af94de7b105b2ed9c296d517fa79cc9bb0eb0534f6b5c3b0fff8cc5a",
+        "mem_99fd6bddd244d751159887584869839adb206d46981ed9099e794c71e8326fba"
+      ],
+      "gold_hits": 3,
+      "direct_hit_count": 7
+    },
+    {
+      "id": "c03",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c03-C.md",
+      "hit_ids": [
+        "mem_ead51eb1254bb97d2b03b8026c15f48b5a266f2ed39cb9f2926e94b9bd8bdbb4",
+        "mem_db191d15adb5c82bceec3aee0397ae4754fb5014ef32017906011769e6714b57",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 4
+    },
+    {
+      "id": "c04",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c04-C.md",
+      "hit_ids": [
+        "mem_68c87f1dc669e8cfe77e84fece72347874f27bed730b4a37439b28decc0f1ad3",
+        "mem_cda26a7fdd1a0d12571c475c401d19380314899f7b6f5054028444d5e443cf14",
+        "mem_5d494b81249e4011ce9fec91f7eb4368bf9c974c62c38672a829690e9ba5fd89",
+        "mem_5c27d130626f5ea2733a28ff89a1b885e84851428a5ec539591f70185e2f1b67",
+        "mem_d8d148a7a166e0c94709359dfb65d8ed4935ddeffd0b21d8777bfd421fc93edd"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 6
+    },
+    {
+      "id": "c05",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c05-C.md",
+      "hit_ids": [
+        "mem_cda26a7fdd1a0d12571c475c401d19380314899f7b6f5054028444d5e443cf14",
+        "mem_d8d148a7a166e0c94709359dfb65d8ed4935ddeffd0b21d8777bfd421fc93edd",
+        "mem_e959f4810c7b4bfad9dd82268e6961726c8aafe58f89dae9bfd693bf45256df0",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 7
+    },
+    {
+      "id": "c06",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c06-C.md",
+      "hit_ids": [
+        "mem_99fd6bddd244d751159887584869839adb206d46981ed9099e794c71e8326fba",
+        "mem_625c3a60dffe42fb0c540c651c3f54d9268da5f303cc167a53ad1d70bd16c48c",
+        "mem_cda26a7fdd1a0d12571c475c401d19380314899f7b6f5054028444d5e443cf14",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 4
+    },
+    {
+      "id": "c07",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c07-C.md",
+      "hit_ids": [
+        "mem_db191d15adb5c82bceec3aee0397ae4754fb5014ef32017906011769e6714b57",
+        "mem_ea1221849c68e7f8d0e6a074a094663a27f3466f627ba29c4b374718555aa6a7",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9",
+        "mem_36b085d1211a79957c5d6be7acd57a5246044a8b15c529faacee933108ba68dc",
+        "mem_d8d148a7a166e0c94709359dfb65d8ed4935ddeffd0b21d8777bfd421fc93edd"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 6
+    },
+    {
+      "id": "c08",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c08-C.md",
+      "hit_ids": [
+        "mem_db191d15adb5c82bceec3aee0397ae4754fb5014ef32017906011769e6714b57",
+        "mem_ea1221849c68e7f8d0e6a074a094663a27f3466f627ba29c4b374718555aa6a7",
+        "mem_e959f4810c7b4bfad9dd82268e6961726c8aafe58f89dae9bfd693bf45256df0",
+        "mem_420ac207e19ac7f5097c04ff9e135065676cc0229ddb0b9eecb10b51da8665d2",
+        "mem_fc68ad3c3f417a564a44f6683ccbdb66ac8fb382bafefc614b1f5396e8704db3"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 7
+    },
+    {
+      "id": "c09",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c09-C.md",
+      "hit_ids": [
+        "mem_7f8fbb153ffa6eb80e73675f3bad413a84eebe282406d98d16f5595351f3f70d",
+        "mem_c7109c7d2efdd51000fe2b40beae8990c80e1acc4bc728cac9dbaae7a9ac5728",
+        "mem_db191d15adb5c82bceec3aee0397ae4754fb5014ef32017906011769e6714b57",
+        "mem_109095988b9c440d30e1b23234d56d63e05ba60a593f27f9ac5468144c672669"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 4
+    },
+    {
+      "id": "c10",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c10-C.md",
+      "hit_ids": [
+        "mem_21853ed41e2b760f648c34df4f78836d37d26f784233a26d3e82d06c03f48d2b",
+        "mem_5aaaab58543d3c5be9d21b0213b6f01347792c36f2e3e1df655e3851dee5c07a",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9",
+        "mem_5c27d130626f5ea2733a28ff89a1b885e84851428a5ec539591f70185e2f1b67",
+        "mem_109095988b9c440d30e1b23234d56d63e05ba60a593f27f9ac5468144c672669"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 8
+    },
+    {
+      "id": "c11",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c11-C.md",
+      "hit_ids": [
+        "mem_5aaaab58543d3c5be9d21b0213b6f01347792c36f2e3e1df655e3851dee5c07a",
+        "mem_420ac207e19ac7f5097c04ff9e135065676cc0229ddb0b9eecb10b51da8665d2",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a",
+        "mem_5c27d130626f5ea2733a28ff89a1b885e84851428a5ec539591f70185e2f1b67"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 4
+    },
+    {
+      "id": "c12",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c12-C.md",
+      "hit_ids": [
+        "mem_625c3a60dffe42fb0c540c651c3f54d9268da5f303cc167a53ad1d70bd16c48c",
+        "mem_99fd6bddd244d751159887584869839adb206d46981ed9099e794c71e8326fba",
+        "mem_cda26a7fdd1a0d12571c475c401d19380314899f7b6f5054028444d5e443cf14",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 8
+    },
+    {
+      "id": "c13",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c13-C.md",
+      "hit_ids": [
+        "mem_b5514f94c1b2abba2344290598c6e12db4b8168714bcd2ed28867d67914bb71f",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9",
+        "mem_669dbb40af94de7b105b2ed9c296d517fa79cc9bb0eb0534f6b5c3b0fff8cc5a",
+        "mem_d12f526b47a426abf7b6af0b2058b89710baca20e3446a9edca503923562cac2",
+        "mem_ea1221849c68e7f8d0e6a074a094663a27f3466f627ba29c4b374718555aa6a7"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 10
+    },
+    {
+      "id": "c14",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c14-C.md",
+      "hit_ids": [
+        "mem_5c27d130626f5ea2733a28ff89a1b885e84851428a5ec539591f70185e2f1b67",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a",
+        "mem_5d494b81249e4011ce9fec91f7eb4368bf9c974c62c38672a829690e9ba5fd89"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 3
+    },
+    {
+      "id": "c15",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c15-C.md",
+      "hit_ids": [
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a",
+        "mem_109095988b9c440d30e1b23234d56d63e05ba60a593f27f9ac5468144c672669",
+        "mem_b4fcc5a04e207dc1e341b2a7519852402c01be0264b9512c0a871f976be5147c",
+        "mem_5c27d130626f5ea2733a28ff89a1b885e84851428a5ec539591f70185e2f1b67"
+      ],
+      "gold_hits": 2,
+      "direct_hit_count": 4
+    },
+    {
+      "id": "c16",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c16-C.md",
+      "hit_ids": [
+        "mem_fc68ad3c3f417a564a44f6683ccbdb66ac8fb382bafefc614b1f5396e8704db3",
+        "mem_bcdfe214c77135070a8cd97a82bdf3bd5e65a20882d6b6295d8a4166b9e9c1e9"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 2
+    },
+    {
+      "id": "c17",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c17-C.md",
+      "hit_ids": [
+        "mem_db191d15adb5c82bceec3aee0397ae4754fb5014ef32017906011769e6714b57",
+        "mem_ea1221849c68e7f8d0e6a074a094663a27f3466f627ba29c4b374718555aa6a7",
+        "mem_ead51eb1254bb97d2b03b8026c15f48b5a266f2ed39cb9f2926e94b9bd8bdbb4",
+        "mem_7f8fbb153ffa6eb80e73675f3bad413a84eebe282406d98d16f5595351f3f70d",
+        "mem_c7109c7d2efdd51000fe2b40beae8990c80e1acc4bc728cac9dbaae7a9ac5728"
+      ],
+      "gold_hits": 1,
+      "direct_hit_count": 9
+    },
+    {
+      "id": "c18",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c18-C.md",
+      "hit_ids": [
+        "mem_ead51eb1254bb97d2b03b8026c15f48b5a266f2ed39cb9f2926e94b9bd8bdbb4",
+        "mem_db191d15adb5c82bceec3aee0397ae4754fb5014ef32017906011769e6714b57"
+      ],
+      "gold_hits": 0,
+      "direct_hit_count": 2
+    },
+    {
+      "id": "c19",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c19-C.md",
+      "hit_ids": [
+        "mem_99fd6bddd244d751159887584869839adb206d46981ed9099e794c71e8326fba",
+        "mem_ead51eb1254bb97d2b03b8026c15f48b5a266f2ed39cb9f2926e94b9bd8bdbb4",
+        "mem_5c27d130626f5ea2733a28ff89a1b885e84851428a5ec539591f70185e2f1b67"
+      ],
+      "gold_hits": 0,
+      "direct_hit_count": 3
+    },
+    {
+      "id": "c20",
+      "k": "C",
+      "file": "C:\\Users\\15728\\Desktop\\ai\\dsh-memsys-pub\\eval\\q031\\c20-C.md",
+      "hit_ids": [
+        "mem_fc68ad3c3f417a564a44f6683ccbdb66ac8fb382bafefc614b1f5396e8704db3",
+        "mem_ea1221849c68e7f8d0e6a074a094663a27f3466f627ba29c4b374718555aa6a7",
+        "mem_b5ee796f55b9f1eb5ef000d37aca45b59b0a0a149dac3710ca0c1b455d29910a",
+        "mem_e959f4810c7b4bfad9dd82268e6961726c8aafe58f89dae9bfd693bf45256df0"
+      ],
+      "gold_hits": 0,
+      "direct_hit_count": 4
+    }
+  ]
+}

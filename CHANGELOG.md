@@ -2,6 +2,18 @@
 
 ## 0.3.1
 
+### Added
+
+- **检索改造：查询改写 + 同义扩展**（`docs/EVAL.md` 指出的短板）。`memsys_search` 的 `keywords`
+  是整句字符串，旧检索只做 `includes(整句)`，口语问句几乎零召回。现在：
+  - `src/read/expand.mjs`：整句 → 分词（短块整词、长句二元组）+ 通用域同义扩展；纯函数、零依赖。
+  - `src/read/search.mjs`：过滤面用「原词 + 扩展词」放宽，排序用「原问 + 扩展词」，并把 `why/detail`
+    纳入打分面（之前只参与过滤）；排序不再把关键词数组直接当 query。
+  - 私人实体（人名/作品名/公司名）**不进代码**：宿主启动时 `setAliasProvider(() => loadAliases(dataDir))`
+    从 `<dataDir>/aliases.json` 读，文件不存在当空；`src` 只留通用域词，`npm pack` 不含私人名字。
+  - 设备上验：20 题 C 配置召回 17/26 → 26/26，回答覆盖 28/52（53.8%）→ **39/52（75.0%）**，
+    c08/c17/c10 三道零召回题全部修复（判分器 `eval/grade.mjs`，口径差异见 `docs/EVAL.md` 第七节）。
+
 ### Fixed
 
 - **球架上的球点不动**：3D 台面（`rotateX(62deg)` 的 deck / 前缘 / 背板 / 立柱）压在球前面，
