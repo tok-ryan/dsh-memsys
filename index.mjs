@@ -23,6 +23,7 @@ import { runtimeFromExec } from './src/runtime/identity.mjs';
 import { createMemoryHandler, createSearchHandler, createSummaryHandler } from './src/runtime/summary.mjs';
 import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime/ui-config.mjs';
 import { createRoundInjector } from './src/runtime/inject-round.mjs';
+import { loadAliases, setAliasProvider } from './src/read/expand.mjs';
 import { createMemSysService, provideMemSysService } from './src/runtime/service.mjs';
 import { compileRound } from './src/context/compile.mjs';
 import { conservativeTokens } from './src/context/budget.mjs';
@@ -194,6 +195,13 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
  */
 export async function apply(ctx, config = {}) {
   const ui = createUiState(config);
+  // 私人别名（口语 → 记忆里的写法）只从数据目录读，永不进 npm 包。
+  // 别名层是可选的：文件不存在或 JSON 坏了就当空，检索仍按通用词工作。
+  try {
+    setAliasProvider(() => loadAliases(ui.dataDir));
+  } catch {
+    // 没有数据目录时保持 null provider
+  }
   const handlers = createHostHandlers(config, ctx, ui);
   const registration = await registerHostTools({ ctx, handlers, modules: ui.modules });
 

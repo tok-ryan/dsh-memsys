@@ -368,7 +368,7 @@ if (CASE === 'record') {
   const patchPath = path.join(dispatchDir, 'record.patch.yml');
   const probePath = path.join(dispatchDir, 'record.json');
   fs.writeFileSync(patchPath, '- id: memsys\n  config:\n    auto_inject: false\n    diagnostic_section: false\n', 'utf8');
-  const promptText = '调用 memsys_record 工具，kind="candidate"，items=[{text:"鲸鱼娘会拍水"}]，把返回的 status 原样写出来';
+  const promptText = '调用 memsys_record 工具，kind="candidate"，items=[{text:"助手会拍水"}]，把返回的 status 原样写出来';
   const boot = run(['--profile', PROFILE, '--patch', patchPath, 'headless', promptText], {
     timeout: 180000,
     env: { ...process.env, MEMSYS_DATA_DIR: dataDir, MEMSYS_DISPATCH_PROBE: probePath },
@@ -385,8 +385,8 @@ if (CASE === 'record') {
     handles = openAll(resolveConfig({ dataDir }));
     const counts = {};
     for (const table of ['memories', 'candidates', 'observations']) counts[table] = handles.main.prepare('SELECT COUNT(*) AS n FROM ' + table).get().n;
-    const candidate = handles.main.prepare('SELECT * FROM candidates WHERE text = ? ORDER BY recorded_at DESC LIMIT 1').get('鲸鱼娘会拍水');
-    const memory = handles.main.prepare('SELECT * FROM memories WHERE text = ? ORDER BY recorded_at DESC LIMIT 1').get('鲸鱼娘会拍水');
+    const candidate = handles.main.prepare('SELECT * FROM candidates WHERE text = ? ORDER BY recorded_at DESC LIMIT 1').get('助手会拍水');
+    const memory = handles.main.prepare('SELECT * FROM memories WHERE text = ? ORDER BY recorded_at DESC LIMIT 1').get('助手会拍水');
     artifact.db_counts = counts;
     artifact.new_candidate = candidate ? { id: candidate.id, text: candidate.text, origin: candidate.origin, creator_session_id: candidate.creator_session_id } : null;
     artifact.new_memory = memory ? { id: memory.id, origin: memory.origin } : null;
