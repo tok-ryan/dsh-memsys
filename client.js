@@ -45,60 +45,52 @@ window.__ModuleLoader__.load({
       return [state, setState];
     }
 
-    // Pure CSS/DOM "memory balls on a shelf". No 3D library, no build step,
-    // no external resource: gradient + inset shadow + one float keyframe.
+    // Memory hall: a corridor of walls built with plain CSS 3D. No library, no
+    // build step, no external resource: perspective + preserve-3d + one float
+    // keyframe, reusing the glass-ball optics the old shelf already had.
+    // Geometry: a 5x5 front wall, the side face of the next (older) wall on the
+    // right, and a base band under both. One wheel step turns the whole wall.
     const BALL_CSS = [
 '@keyframes msFloat{0%,100%{translate:0 0}50%{translate:0 -.030em}}',
 '@keyframes msDevelop{0%{opacity:0;transform:scale(.70);filter:blur(.08em)}45%{opacity:1}100%{opacity:1;transform:scale(1);filter:blur(0)}}',
 '@keyframes msWait{0%,100%{opacity:.55}50%{opacity:1}}',
 '.ms-panel{padding:16px;line-height:1.7}',
 '.ms-counts{margin:0 0 10px;opacity:.85}',
-'.ms-shelf{--case-1:#f8f2e8;--case-2:#e6dcc9;--case-edge:rgba(255,255,255,.9);',
-'--deck-1:#dcbe93;--deck-2:#c49f70;--deck-3:#9f7c4c;--front-1:#c8a374;--front-2:#8a6a41;',
-'--div-1:#c9a77a;--div-2:#7d5f3d;--rim:rgba(255,255,255,.5);--light:rgba(255,246,226,.55);',
+'.ms-hall{--wall-w:320px;--wall-h:290px;--stage-h:334px;--case-1:#f7f1e6;--case-2:#e6dac6;--case-edge:rgba(255,255,255,.9);',
+'--wall-1:#efe4d2;--wall-2:#ddcbb0;--wall-3:#b99a72;--plank:rgba(92,64,30,.26);--post-1:#c9a77a;--post-2:#7d5f3d;',
+'--base-1:#a5855c;--base-2:#5f4529;--rim:rgba(255,255,255,.55);--light:rgba(255,246,226,.55);',
 '--cushion-edge:rgba(0,0,0,.55);--cushion-rim:rgba(255,255,255,.75);',
-'--empty-dark:rgba(46,30,14,.46);--empty-rim:rgba(255,255,255,.62);--empty-glow:rgba(255,232,196,.30);--vignette:rgba(62,42,20,.20);',
-'--focus:#2f7bff;margin:0 0 10px}',
-'@media (prefers-color-scheme:dark){.ms-shelf{--case-1:#121521;--case-2:#060810;--case-edge:rgba(150,185,255,.16);',
-'--deck-1:#2b241c;--deck-2:#1a1510;--deck-3:#0f0c09;--front-1:#332a20;--front-2:#150f0b;',
-'--div-1:#2e261d;--div-2:#120e0a;--rim:rgba(150,190,255,.30);--light:rgba(120,170,255,.10);',
+'--empty-dark:rgba(46,30,14,.44);--empty-rim:rgba(255,255,255,.60);--empty-glow:rgba(255,232,196,.30);',
+'--vignette:rgba(62,42,20,.20);--focus:#2f7bff;margin:0 0 10px}',
+'@media (prefers-color-scheme:dark){.ms-hall{--case-1:#121521;--case-2:#060810;--case-edge:rgba(150,185,255,.16);',
+'--wall-1:#1b1f2c;--wall-2:#12151f;--wall-3:#0a0c13;--plank:rgba(150,190,255,.10);--post-1:#2e261d;--post-2:#120e0a;',
+'--base-1:#20242f;--base-2:#080a10;--rim:rgba(150,190,255,.30);--light:rgba(120,170,255,.10);',
 '--cushion-edge:rgba(0,0,0,.70);--cushion-rim:var(--ms-rim);--vignette:rgba(0,0,0,.55);',
 '--empty-dark:rgba(0,0,0,.50);--empty-rim:rgba(190,220,255,.30);--empty-glow:rgba(150,195,255,.32);',
 '--focus:#6ea6ff}}',
-'.ms-stage-wrap{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 20px 36px -30px rgba(4,8,18,.6)}',
-'.ms-stage{position:relative;height:206px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;',
-'perspective:1000px;perspective-origin:50% 36%;',
-'background:radial-gradient(90% 70% at 50% 0%,var(--light),transparent 62%),linear-gradient(180deg,var(--case-1),var(--case-2));',
+'.ms-hall-stage-wrap{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 20px 36px -30px rgba(4,8,18,.6)}',
+'.ms-hall-stage{position:relative;height:var(--stage-h,334px);overflow:hidden;perspective:1000px;perspective-origin:47% 56%;',
+'background:radial-gradient(90% 70% at 46% 0%,var(--light),transparent 62%),linear-gradient(180deg,var(--case-1),var(--case-2));',
 'box-shadow:inset 0 1px 0 var(--case-edge)}',
-'.ms-stage::-webkit-scrollbar{display:none}',
-'.ms-world{position:relative;width:640px;height:100%;margin:0 auto;transform-style:preserve-3d;',
-'transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .4s ease-out}',
-'.ms-light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 60% at 50% -8%,var(--light),transparent 70%)}',
-'.ms-vignette{position:absolute;inset:0;pointer-events:none;border-radius:14px;background:radial-gradient(120% 100% at 50% 30%,transparent 38%,var(--vignette,rgba(0,0,0,.25)))}',
-'.ms-rack{position:absolute;left:50%;bottom:var(--b,12px);width:640px;height:150px;transform-origin:50% 100%;',
-'transform:translateX(-50%) translateZ(var(--z,0px)) scale(var(--k,1));transform-style:preserve-3d}',
-'.ms-rack .rk-back{position:absolute;left:7px;right:7px;bottom:56px;height:22px;transform:translateZ(-96px);',
-'background:repeating-linear-gradient(0deg,rgba(0,0,0,.28) 0 1px,transparent 1px 6px),linear-gradient(180deg,var(--front-1),var(--front-2));',
-'box-shadow:inset 0 0 44px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.08);border-radius:3px}',
-'.ms-rack .rk-deck{position:absolute;left:7px;right:7px;bottom:12px;height:100px;transform-origin:50% 100%;',
-'transform:rotateX(62deg);transform-style:preserve-3d;border-radius:3px;',
-'background:repeating-linear-gradient(90deg,rgba(60,40,20,.10) 0 1px,transparent 1px 9px),',
-'linear-gradient(180deg,var(--deck-3),var(--deck-2) 55%,var(--deck-1));',
-'box-shadow:inset 0 1px 0 var(--rim),inset 0 0 34px rgba(0,0,0,.45)}',
-'.ms-rack .rk-front{position:absolute;left:7px;right:7px;bottom:0;height:12px;border-radius:0 0 4px 4px;',
-'background:linear-gradient(180deg,rgba(255,255,255,.55) 0 2px,var(--front-1) 2px,var(--front-2) 100%);',
-'box-shadow:0 12px 20px -9px rgba(0,0,0,.65),inset 0 1px 0 var(--rim)}',
-'.ms-rack .rk-post{position:absolute;bottom:0;width:12px;height:44px;border-radius:2px;',
-'background:linear-gradient(90deg,var(--div-1),var(--div-2));box-shadow:inset 1px 0 0 var(--rim),0 0 14px rgba(0,0,0,.5)}',
-'.ms-rack .rk-post-l{left:0}.ms-rack .rk-post-r{right:0}',
-'.ms-shelf[data-compact="1"] .ms-world{width:100%;height:100%}',
-'.ms-shelf[data-compact="1"] .ms-rack{width:100%}',
-'.rk-slots{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;align-items:flex-end;gap:0;padding:0 12px;transform-style:preserve-3d}',
-'.rk-cell{display:flex;align-items:flex-end;gap:5px;padding:0 7px;transform-style:preserve-3d}',
-'.rk-div{position:relative;flex:0 0 auto;width:9px;height:86px;align-self:flex-end;transform:translateZ(-22px);',
-'background:linear-gradient(180deg,var(--div-1),var(--div-2));border-radius:2px 2px 0 0;',
-'box-shadow:inset 1px 0 0 var(--rim),inset -1px 0 0 rgba(0,0,0,.35),0 6px 10px -4px rgba(0,0,0,.55)}',
-'.ms-slot{position:relative;flex:0 0 auto;width:50px;height:var(--ms-size);display:flex;align-items:flex-end;justify-content:center;transform-style:preserve-3d}',
+'.ms-hall-world{position:absolute;inset:0;left:-2%;transform-style:preserve-3d}',
+'.ms-hall-wall{position:absolute;left:50%;top:50%;width:var(--wall-w);height:var(--wall-h);',
+'transform:translate(-50%,-50%) translate3d(var(--tx,0px),0,var(--tz,0px)) rotateY(var(--rot,0deg));',
+'transform-style:preserve-3d;border-radius:7px;transition:transform .55s cubic-bezier(.22,.72,.2,1),opacity .22s ease,visibility 0s;',
+'background:linear-gradient(180deg,var(--wall-1) 0%,var(--wall-2) 58%,var(--wall-3) 100%);',
+'box-shadow:inset 0 1px 0 var(--rim),inset 0 -14px 30px -18px rgba(0,0,0,.55),0 18px 40px -18px rgba(0,0,0,.55)}',
+'.ms-hall-wall::before{content:"";position:absolute;inset:0;border-radius:7px;pointer-events:none;',
+'box-shadow:inset 0 0 0 1px rgba(0,0,0,.22),inset 0 0 46px rgba(60,40,18,.22)}',
+'.ms-hall-wall::after{content:"";position:absolute;top:-5px;bottom:-5px;right:-7px;width:11px;border-radius:3px;pointer-events:none;',
+'background:linear-gradient(90deg,var(--post-1),var(--post-2));',
+'box-shadow:inset 1px 0 0 rgba(255,255,255,.30),0 0 16px rgba(0,0,0,.32),0 8px 14px -8px rgba(0,0,0,.55)}',
+'.ms-hall-wall[data-r="1"]{--tx:calc(var(--wall-w) * .72);--tz:calc(var(--wall-w) * -.62);--rot:-62deg}',
+'.ms-hall-wall[data-r="-1"]{--tx:calc(var(--wall-w) * -.72);--tz:calc(var(--wall-w) * -.62);--rot:62deg}',
+'.ms-hall[data-rest="1"] .ms-hall-wall[data-r="-1"]{opacity:0;visibility:hidden;transition:opacity .18s ease,visibility 0s .18s}',
+'.ms-hall-grid{position:absolute;inset:14px 16px 12px;display:grid;grid-template-columns:repeat(5,1fr);',
+'grid-template-rows:repeat(5,1fr);transform-style:preserve-3d;',
+'background-image:repeating-linear-gradient(180deg,transparent 0 calc(20% - 8px),rgba(255,255,255,.18) calc(20% - 8px),rgba(255,255,255,.04) calc(20% - 3px),transparent calc(20% - 3px) 20%),',
+'repeating-linear-gradient(180deg,transparent 0 calc(20% - 3px),var(--plank) calc(20% - 3px),var(--plank) 20%)}',
+'.ms-slot{position:relative;display:flex;align-items:flex-end;justify-content:center;transform-style:preserve-3d;cursor:pointer}',
 '.ms-cushion{position:absolute;left:50%;bottom:0;pointer-events:none;width:calc(var(--ms-size) * 1.35);height:calc(var(--ms-size) * 1.35);',
 'border-radius:50%;transform:translate(-50%,4%) translateZ(.8px);',
 'background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.16) 0%,rgba(255,255,255,.05) 20%,rgba(0,0,0,.22) 44%,var(--cushion-edge) 82%,rgba(0,0,0,.25) 100%);',
@@ -130,11 +122,25 @@ window.__ModuleLoader__.load({
 '.ms-ball:hover,.ms-ball:focus-visible{transform:scale(1.06);--ms-extra:0 0 .55em .10em var(--ms-glow)}',
 '.ms-ball:focus-visible{outline:2px solid var(--focus);outline-offset:3px}',
 '.ms-ball[aria-pressed="true"]{transform:scale(1.06);filter:saturate(1.22) brightness(1.10)}',
-'.ms-empty{position:relative;flex:0 0 auto;width:50px;height:var(--ms-size);display:flex;align-items:flex-end;justify-content:center}',
+'.ms-empty{position:relative;display:flex;align-items:flex-end;justify-content:center}',
 '.ms-empty::before{content:"";width:calc(var(--ms-size) * 1.1);height:calc(var(--ms-size) * 1.1);border-radius:50%;',
 'background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.14) 0%,rgba(255,255,255,.02) 34%,var(--empty-dark) 82%,rgba(0,0,0,.10) 100%);',
 'box-shadow:0 0 0 1px var(--empty-rim),0 0 0 2px rgba(0,0,0,.16),inset 0 3px 6px rgba(0,0,0,.28),inset 0 -3px 7px var(--empty-glow);',
 'animation:msWait 3.4s ease-in-out infinite;animation-delay:var(--ms-delay,0s)}',
+'.ms-hall-base{position:absolute;left:0;right:0;bottom:0;height:26px;pointer-events:none;',
+'background:linear-gradient(180deg,var(--base-1),var(--base-2));',
+'box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 -8px 18px -10px rgba(0,0,0,.6)}',
+'.ms-hall-base::after{content:"";position:absolute;left:4%;right:4%;top:-3px;height:3px;border-radius:2px;',
+'background:linear-gradient(90deg,transparent,var(--rim),transparent);opacity:.6}',
+'.ms-hall-light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 60% at 46% -8%,var(--light),transparent 70%)}',
+'.ms-hall-vignette{position:absolute;inset:0;pointer-events:none;border-radius:14px;',
+'background:radial-gradient(120% 100% at 46% 34%,transparent 40%,var(--vignette,rgba(0,0,0,.25)))}',
+'.ms-hall-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 0;font-size:.92em}',
+'.ms-hall-btn{padding:4px 10px;border-radius:999px;border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.08);',
+'color:inherit;font:inherit;cursor:pointer}',
+'.ms-hall-btn:disabled{opacity:.35;cursor:default}',
+'.ms-hall-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}',
+'.ms-hall-pos{opacity:.75}',
 '.ms-card{margin-top:10px;padding:12px 14px;border-radius:10px;background:rgba(127,127,127,.08);font-size:.95em}',
 '.ms-hint{opacity:.75;margin:6px 0 0}',
 '.ms-search{width:100%;box-sizing:border-box;padding:7px 10px;margin:0 0 12px;border-radius:8px;border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.06);color:inherit;font:inherit}',
@@ -142,20 +148,14 @@ window.__ModuleLoader__.load({
 '.ms-row:hover,.ms-row:focus-visible{border-color:rgba(63,167,255,.55);outline:none}',
 '.ms-kind{opacity:.65;margin-right:6px;font-size:.9em}',
 '.ms-muted{opacity:.65}',
-'@media (prefers-color-scheme:dark){.ms-rack[data-depth="1"] .ms-ball{filter:brightness(.94) saturate(.88)}.ms-rack[data-depth="2"] .ms-ball{filter:brightness(.86) saturate(.76)}}',
-'@media (prefers-reduced-motion:reduce){.ms-ball,.ms-ball::after,.ms-empty::before{animation:none !important;transition:none !important}.ms-world{transition:none !important}}',
-      // 命中修复：架板、背板、前缘、立柱、隔板都是装饰件，不该吃掉点击；
-      // 然后把整排球位往观众方向抬 14px，保证球在 decks 之前被命中。
-      '.ms-rack .rk-deck,.ms-rack .rk-front,.ms-rack .rk-back,.ms-rack .rk-post,.ms-rack .rk-div{pointer-events:none}',
-      '.rk-slots{transform:translateZ(14px)}',
-      // 球位本身也整块可点：点在软垫/托座上同样选中这颗球（最小 44px 命中区）。
-      '.ms-slot{cursor:pointer}',
-      '.ms-slot .ms-ball{position:relative;z-index:2}',
-      // 架子容器本身也整块不拦点击，只有球位那一串恢复可点。
-      '.ms-rack{pointer-events:none}',
-      '.rk-slots,.rk-cell,.ms-slot,.ms-stand,.ms-ball{pointer-events:auto}',
-    ].join('');
-    const BALL_SIZES = [44, 40, 36, 32];
+'@media (prefers-reduced-motion:reduce){.ms-hall-wall{transition:none !important}',
+'.ms-ball,.ms-ball::after,.ms-empty::before{animation:none !important;transition:none !important}}',
+].join('');
+
+    const HALL_SIZE = 25;              // 5 rows x 5 columns = one wall
+    const HALL_COLUMNS = 5;
+    const WHEEL_STEP = 24;             // a wheel gesture must travel this far to count
+    const WHEEL_LOCK_MS = 560;         // one wall per gesture: lock while it slides
     // 固定 7 色 token 表：色相固定、明度高、饱和低；暗部用同色相加深，不压黑。
     const BALL_TYPES = {
       identity:  { label: '身份', hi: '#dae5f1', core: '#b1cae7', mid: '#7caade', lo: '#3573bb', glow: 'rgba(80,160,240,.35)' },
@@ -167,20 +167,6 @@ window.__ModuleLoader__.load({
       procedure: { label: '做法', hi: '#e4daf1', core: '#c8b1e7', mid: '#a77cde', lo: '#6f35bb', glow: 'rgba(170,120,240,.35)' },
       other:     { label: '其它', hi: '#e3e5e8', core: '#c5c9d3', mid: '#9ba6bf', lo: '#626f8d', glow: 'rgba(130,160,220,.28)' },
     };
-    // 三排书架：纵深 z / 缩放 k / 距舞台底 b / 球索引区间 / 空槽数
-    const BALL_RACKS = [
-      { z: 0, k: 1, b: 10, from: 0, to: 8, empty: 2 },
-      { z: -150, k: .84, b: 74, from: 8, to: 15, empty: 2 },
-      { z: -300, k: .72, b: 128, from: 15, to: 99, empty: 1 },
-    ];
-    // 窄栏（侧栏 < 480px）：每排 4 颗、整台 100% 宽，不出现横向滚动
-    const COMPACT_RACKS = [
-      { z: 0, k: 1, b: 8, from: 0, to: 4, empty: 1 },
-      { z: -120, k: .90, b: 58, from: 4, to: 8, empty: 0 },
-      { z: -240, k: .80, b: 100, from: 8, to: 12, empty: 0 },
-    ];
-    const COMPACT_BREAKPOINT = 480;
-    const EMPTY_SLOTS = 5;
     const CARD_TEXT_LIMIT = 120;
 
     function ballHash(text) {
@@ -218,10 +204,12 @@ window.__ModuleLoader__.load({
       const date = new Date(value);
       return `${date.getMonth() + 1}-${String(date.getDate()).padStart(2, '0')}`;
     }
-    function ballVars(memory, index, depth, compact) {
+    // Sizes follow the measured wall width; weight still adds a small step so a
+    // heavy memory keeps the slightly larger ball it had on the shelf.
+    function ballVars(memory, index, row, baseSize) {
       const palette = ballPalette(memory.type);
-      const baseSize = BALL_SIZES[ballTier(memory, index)];
-      const size = compact ? Math.max(36, baseSize) : baseSize;
+      const tier = ballTier(memory, index);
+      const size = Math.max(20, Math.round(baseSize * [1, 0.94, 0.88, 0.82][tier]));
       const hashValue = ballHash(memory.id);
       const lx = ballClamp(32 + ballOffset(hashValue, 0) / size * 100, 24, 42);
       const ly = ballClamp(27 + ballOffset(hashValue, 4) / size * 100, 19, 36);
@@ -237,34 +225,68 @@ window.__ModuleLoader__.load({
         '--ms-edge': ballRgba(palette.lo, .48),
         '--ms-glow': palette.glow,
         '--ms-rim': ballRgba(palette.mid, .30),
-        '--ms-cushion-lip': `rgba(0,0,0,${(0.50 + depth * 0.06).toFixed(2)})`,
+        '--ms-cushion-lip': `rgba(0,0,0,${(0.50 + Math.min(4, row) * 0.05).toFixed(2)})`,
         '--ms-gangle': `${gangle.toFixed(0)}deg`,
         '--ms-lx': `${lx.toFixed(1)}%`,
         '--ms-ly': `${ly.toFixed(1)}%`,
         '--ms-rx': `${ballClamp(100 - lx, 54, 78).toFixed(1)}%`,
         '--ms-ry': `${ballClamp(100 - ly + 8, 58, 86).toFixed(1)}%`,
         '--ms-arc': `${arc.toFixed(0)}deg`,
-        '--ms-delay': `${index * 130}ms`,
+        '--ms-delay': `${(index % HALL_SIZE) * 110}ms`,
         '--ms-dur': `${(4.9 + (hashValue % 5) * 0.1).toFixed(1)}s`,
       };
     }
-    function useCompactShelf() {
-      const [compact, setCompact] = React.useState(false);
-      const stageRef = React.useRef(null);
-      React.useEffect(() => {
-        const node = stageRef.current;
-        if (!node || typeof node.clientWidth !== 'number') return undefined;
-        const apply = (width) => setCompact(width > 0 && width < COMPACT_BREAKPOINT);
+
+    // One wall is 25 balls; the frame is measured so the side face of the next
+    // wall still fits on the right of a narrow sidebar.
+    function hallMetrics(width) {
+      const stageWidth = width > 0 ? width : 340;
+      const wallWidth = Math.round(Math.min(560, Math.max(210, stageWidth - 84)));
+      const column = (wallWidth - 32) / HALL_COLUMNS;
+      const ballBase = Math.round(Math.min(44, Math.max(22, column / 1.35)));
+      const wallHeight = Math.round(ballBase * 1.35 * 5 + 34);
+      return { stageWidth, wallWidth, ballBase, wallHeight };
+    }
+    function hallWallCount(total) {
+      return Math.max(1, Math.ceil(Math.max(0, Number(total) || 0) / HALL_SIZE));
+    }
+    function hallHasNext(wall, total) {
+      return (wall + 1) * HALL_SIZE < Math.max(0, Number(total) || 0);
+    }
+    function hallIndex(wall, cell) {
+      return wall * HALL_SIZE + cell;
+    }
+    function hallCells(items) {
+      const cells = new Array(HALL_SIZE).fill(null);
+      const list = Array.isArray(items) ? items : [];
+      for (let index = 0; index < Math.min(list.length, HALL_SIZE); index += 1) cells[index] = list[index];
+      return cells;
+    }
+
+    function useHallLayout() {
+      const [width, setWidth] = React.useState(0);
+      const nodeRef = React.useRef(null);
+      const observerRef = React.useRef(null);
+      // Callback ref: the stage only mounts after the summary arrives, so an
+      // effect with [] would run while the node is still null and never re-run.
+      const measure = React.useCallback((node) => {
+        if (observerRef.current) {
+          observerRef.current.disconnect();
+          observerRef.current = null;
+        }
+        nodeRef.current = node;
+        if (!node || typeof node.clientWidth !== 'number') return;
+        const apply = (value) => setWidth(value > 0 ? value : 0);
         apply(node.clientWidth);
-        if (typeof ResizeObserver === 'undefined') return undefined;
+        if (typeof ResizeObserver === 'undefined') return;
         const observer = new ResizeObserver((entries) => {
           const entry = entries && entries[0];
           apply(entry && entry.contentRect ? entry.contentRect.width : node.clientWidth);
         });
         observer.observe(node);
-        return () => observer.disconnect();
+        observerRef.current = observer;
       }, []);
-      return [compact, stageRef];
+      return [width, nodeRef, measure];
     }
 
     function ballReduced() {
@@ -322,33 +344,172 @@ window.__ModuleLoader__.load({
     function MemoryPanel() {
       const [state] = useSummary();
       const [selectedId, setSelectedId] = React.useState(null);
+      const [detail, setDetail] = React.useState(null);
       const [query, setQuery] = React.useState('');
       const [openResultId, setOpenResultId] = React.useState(null);
-      const [compact, stageRef] = useCompactShelf();
+      const [stageWidth, stageNodeRef, measureStage] = useHallLayout();
+      const [pages, setPages] = React.useState({});
+      const [wall, setWall] = React.useState(0);
+      const [rest, setRest] = React.useState(true);
+      const [pageFailed, setPageFailed] = React.useState(false);
+      const mounted = React.useRef(true);
+      const restRef = React.useRef(true);
+      const wallRef = React.useRef(0);
+      const totalRef = React.useRef(0);
+      const pendingRef = React.useRef(0);
+      const wheelAcc = React.useRef(0);
+      const moveTimer = React.useRef(null);
+      const fetching = React.useRef(new Set());
+      const stepRef = React.useRef(null);
+      const seenTotal = React.useRef(null);
+
+      const total = state?.total ?? state?.memories ?? 0;
+      const wallCount = hallWallCount(total);
+      const metrics = hallMetrics(stageWidth);
+      const ready = Boolean(state) && !state?.error;
+      restRef.current = rest;
+      wallRef.current = wall;
+      totalRef.current = total;
+
+      React.useEffect(() => {
+        mounted.current = true;
+        return () => {
+          mounted.current = false;
+          if (moveTimer.current) clearTimeout(moveTimer.current);
+        };
+      }, []);
+
+      // Front wall plus the side face of the next (older) wall. Deeper walls are
+      // not fetched until the wheel brings them in; coming back hits the cache.
+      React.useEffect(() => {
+        if (!state || state.error || total <= 0) return undefined;
+        const wanted = [wall];
+        if (hallHasNext(wall, total)) wanted.push(wall + 1);
+        for (const index of wanted) {
+          if (pages[index] || fetching.current.has(index)) continue;
+          fetching.current.add(index);
+          fetch(API + '?offset=' + index * HALL_SIZE + '&limit=' + HALL_SIZE)
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+            .then((data) => {
+              if (!mounted.current) return;
+              // An older host answers the plain summary here; that is not a page.
+              if (!data || !Array.isArray(data.items)) throw new Error('page_not_paged');
+              setPageFailed(false);
+              setPages((current) => ({ ...current, [index]: data.items }));
+            })
+            .catch(() => {
+              if (mounted.current) setPageFailed(true);
+            })
+            .then(() => {
+              fetching.current.delete(index);
+            });
+        }
+        return undefined;
+      }, [state, wall, total, pages]);
+
+      // A new memory shifts every offset, so drop the page cache once total moves.
+      React.useEffect(() => {
+        if (!state || state.error) return;
+        const nextTotal = state.total ?? null;
+        if (seenTotal.current !== null && nextTotal !== null && seenTotal.current !== nextTotal) {
+          setPages({});
+          setWall(0);
+          setSelectedId(null);
+          setDetail(null);
+        }
+        seenTotal.current = nextTotal;
+      }, [state]);
+
+      const finishMove = () => {
+        restRef.current = true;
+        setRest(true);
+        const next = pendingRef.current;
+        pendingRef.current = 0;
+        if (next) stepRef.current(next);
+      };
+      const step = (direction) => {
+        const target = wallRef.current + direction;
+        if (target < 0 || target >= hallWallCount(totalRef.current)) return;
+        setWall(target);
+        if (ballReduced()) {
+          restRef.current = true;
+          setRest(true);
+          pendingRef.current = 0;
+          return;
+        }
+        restRef.current = false;
+        setRest(false);
+        if (moveTimer.current) clearTimeout(moveTimer.current);
+        moveTimer.current = setTimeout(finishMove, WHEEL_LOCK_MS);
+      };
+      stepRef.current = step;
+
+      // React attaches wheel listeners passively, so preventDefault there is a
+      // no-op: use a native non-passive listener. One gesture = one whole wall.
+      React.useEffect(() => {
+        const node = stageNodeRef.current;
+        if (!node || typeof node.addEventListener !== 'function') return undefined;
+        const onWheel = (event) => {
+          event.preventDefault();
+          const direction = event.deltaY > 0 ? 1 : -1;
+          if (!restRef.current) {
+            pendingRef.current = direction;
+            return;
+          }
+          wheelAcc.current += event.deltaY;
+          if (Math.abs(wheelAcc.current) < WHEEL_STEP) return;
+          const dir = wheelAcc.current > 0 ? 1 : -1;
+          wheelAcc.current = 0;
+          stepRef.current(dir);
+        };
+        node.addEventListener('wheel', onWheel, { passive: false });
+        return () => node.removeEventListener('wheel', onWheel);
+      }, [stageWidth, query, ready]);
+
       if (!state) return h('p', { className: 'ms-panel' }, '读取记忆…');
       if (state.error) return h('p', { className: 'ms-panel' }, '暂时读不到记忆数据。');
-      const recent = state.recent ?? [];
-      const selected = recent.find((memory) => memory.id === selectedId) ?? null;
 
-      const slotNode = (memory, index, depth) => {
+      const openMemory = (memory, pageItems) => {
+        setSelectedId(memory.id);
+        setDetail({ id: memory.id, status: 'loading', text: null, type: memory.type, recorded_at: memory.recorded_at });
+        resolveMemory(memory.id, pageItems, fetchMemory)
+          .then((item) => {
+            if (!mounted.current) return;
+            setDetail((current) => (current && current.id === memory.id
+              ? {
+                id: memory.id,
+                status: 'ok',
+                text: item?.text ?? memory.text,
+                type: item?.type ?? memory.type,
+                recorded_at: item?.recorded_at ?? memory.recorded_at,
+              }
+              : current));
+          })
+          .catch(() => {
+            if (!mounted.current) return;
+            setDetail((current) => (current && current.id === memory.id
+              ? { id: memory.id, status: 'error', text: null }
+              : current));
+          });
+      };
+
+      const slotNode = (memory, index, row, pageItems) => {
         const palette = ballPalette(memory.type);
         const pressed = selectedId === memory.id;
         return h('span', {
           key: `slot-${memory.id}`,
           className: 'ms-slot',
           role: 'listitem',
-          style: ballVars(memory, index, depth, compact),
+          style: ballVars(memory, index, row, metrics.ballBase),
           // Decoration layers are pointer-events:none, so a click lands here.
           // The handler lives on the slot: the ball must not toggle twice.
           onClick: () => {
             if (pressed) {
               setSelectedId(null);
               setDetail(null);
-              setDetailFailed(false);
               return;
             }
-            setSelectedId(memory.id);
-            openMemory(memory.id);
+            openMemory(memory, pageItems);
           },
         },
         h('span', { className: 'ms-cushion', 'aria-hidden': true }),
@@ -360,63 +521,78 @@ window.__ModuleLoader__.load({
             'aria-label': `${memory.text}（${palette.label} · ${ballDayLabel(memory.recorded_at)}）`,
             title: `${memory.text} · ${palette.label} · ${ballDayLabel(memory.recorded_at)}`,
             'data-type': memory.type,
-
           })),
         h('span', { className: 'ms-lip', 'aria-hidden': true }));
       };
 
-      const emptyNode = (key, depth) => h('span', {
+      const emptyNode = (key, delay) => h('span', {
         key,
         className: 'ms-empty',
         'aria-hidden': true,
-        style: { '--ms-size': depth === 0 ? '44px' : '38px', '--ms-delay': `${400 + depth * 420}ms` },
+        style: { '--ms-size': `${metrics.ballBase}px`, '--ms-delay': `${delay * 90}ms` },
       });
 
-      const rackNode = (rack, depth) => {
-        const cells = [];
-        let cell = [];
-        for (let index = rack.from; index < Math.min(rack.to, recent.length); index += 1) {
-          cell.push(slotNode(recent[index], index, depth));
-          if (cell.length === (compact ? 2 : (depth < 2 ? 3 : 2))) {
-            cells.push(h('span', { className: 'rk-cell', key: `cell-${depth}-${cells.length}` }, cell));
-            cells.push(h('span', { className: 'rk-div', key: `div-${depth}-${cells.length}`, 'aria-hidden': true }));
-            cell = [];
-          }
-        }
-        for (let index = 0; index < rack.empty; index += 1) cell.push(emptyNode(`empty-${depth}-${index}`, depth));
-        cells.push(h('span', { className: 'rk-cell', key: `cell-${depth}-last` }, cell));
+      const wallNode = (pageIndex, relative) => {
+        const items = pages[pageIndex] ?? null;
+        const cells = hallCells(items);
+        const slots = cells.map((memory, cell) => (memory
+          ? slotNode(memory, hallIndex(pageIndex, cell), Math.floor(cell / HALL_COLUMNS), items)
+          : emptyNode(`empty-${pageIndex}-${cell}`, cell)));
         return h('div', {
-          key: `rack-${depth}`,
-          className: 'ms-rack',
-          'data-depth': String(depth),
-          style: { '--z': `${rack.z}px`, '--k': String(rack.k), '--b': `${rack.b}px` },
+          key: `wall-${pageIndex}`,
+          className: 'ms-hall-wall',
+          'data-r': String(relative),
+          role: 'group',
+          'aria-label': `第 ${pageIndex + 1} 面记忆墙`,
+          'aria-hidden': relative === -1 ? 'true' : undefined,
         },
-        h('div', { className: 'rk-back', 'aria-hidden': true }),
-        h('div', { className: 'rk-deck' },
-          h('div', { className: 'rk-slots', role: 'list', 'aria-label': `最近的记忆（第 ${depth + 1} 层）` }, cells)),
-        h('div', { className: 'rk-front', 'aria-hidden': true }),
-        h('div', { className: 'rk-post rk-post-l', 'aria-hidden': true }),
-        h('div', { className: 'rk-post rk-post-r', 'aria-hidden': true }));
+        h('div', {
+          className: 'ms-hall-grid',
+          role: 'list',
+          'aria-label': `第 ${pageIndex + 1} 面，共 ${items ? items.length : 0} 条`,
+        }, slots));
       };
 
-      // 视差：鼠标在舞台上移动，整台 rotateX(1~4°) / rotateY(±3°)；reduced-motion 下直接不响应
-      const onShelfMouseMove = (event) => {
-        if (ballReduced()) return;
-        const rect = event.currentTarget.getBoundingClientRect();
-        const fx = ballClamp((event.clientX - rect.left) / rect.width, 0, 1) - 0.5;
-        const fy = ballClamp((event.clientY - rect.top) / rect.height, 0, 1) - 0.5;
-        const worldNode = event.currentTarget.querySelector('.ms-world');
-        if (!worldNode) return;
-        worldNode.style.setProperty('--rx', `${(2.5 + fy * 3).toFixed(2)}deg`);
-        worldNode.style.setProperty('--ry', `${(fx * 6).toFixed(2)}deg`);
-      };
-      const onShelfMouseLeave = (event) => {
-        if (ballReduced()) return;
-        const worldNode = event.currentTarget.querySelector('.ms-world');
-        if (!worldNode) return;
-        worldNode.style.setProperty('--rx', '2.5deg');
-        worldNode.style.setProperty('--ry', '0deg');
-      };
+      const walls = [];
+      for (const relative of [-1, 0, 1]) {
+        const pageIndex = wall + relative;
+        if (pageIndex < 0 || pageIndex >= wallCount) continue;
+        if (relative === 1 && !hallHasNext(wall, total)) continue;
+        walls.push(wallNode(pageIndex, relative));
+      }
+
+      const hall = h('div', {
+        className: 'ms-hall',
+        role: 'region',
+        'aria-label': '记忆走廊',
+        'data-rest': rest ? '1' : '0',
+        style: {
+          '--wall-w': `${metrics.wallWidth}px`,
+          '--wall-h': `${metrics.wallHeight}px`,
+          '--stage-h': `${metrics.wallHeight + 44}px`,
+        },
+      },
+      h('div', { className: 'ms-hall-stage-wrap' },
+        h('div', { className: 'ms-hall-stage', ref: measureStage },
+          h('div', { className: 'ms-hall-world' }, walls),
+          h('div', { className: 'ms-hall-base', 'aria-hidden': true })),
+        h('div', { className: 'ms-hall-light', 'aria-hidden': true }),
+        h('div', { className: 'ms-hall-vignette', 'aria-hidden': true })),
+      h('div', { className: 'ms-hall-nav' },
+        h('button', {
+          type: 'button',
+          className: 'ms-hall-btn',
+          disabled: wall === 0,
+          onClick: () => step(-1),
+        }, '← 更新'),
+        h('span', { className: 'ms-hall-pos', role: 'status', 'aria-live': 'polite' },
+          `第 ${wall + 1} 面 / 共 ${wallCount} 面`),
+        h('button', {
+          type: 'button',
+          className: 'ms-hall-btn',
+          disabled: !hallHasNext(wall, total),
+          onClick: () => step(1),
+        }, '更旧 →')));
 
       return h(
         'div',
@@ -424,7 +600,7 @@ window.__ModuleLoader__.load({
         h('style', { dangerouslySetInnerHTML: { __html: BALL_CSS } }),
         h('h2', { style: { margin: '0 0 8px' } }, '记忆'),
         h('p', { className: 'ms-counts' },
-          `记忆 ${state.total ?? state.memories} 条 · 球架显示最近 ${state.recent_limit ?? recent.length} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
+          `记忆 ${total} 条 · 每面 ${HALL_SIZE} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
         h('input', {
           className: 'ms-search',
           type: 'search',
@@ -438,32 +614,27 @@ window.__ModuleLoader__.load({
         }),
         query
           ? h(SearchResults, { query, openId: openResultId, onOpen: setOpenResultId })
-          : h('div', {
-            className: 'ms-shelf',
-            role: 'region',
-            'aria-label': '最近的记忆',
-            'data-compact': compact ? '1' : '0',
-          },
-            h('div', { className: 'ms-stage-wrap' },
-              h('div', {
-                className: 'ms-stage',
-                ref: stageRef,
-                onMouseMove: onShelfMouseMove,
-                onMouseLeave: onShelfMouseLeave,
-              },
-              h('div', { className: 'ms-world' },
-                (compact ? COMPACT_RACKS : BALL_RACKS).map((rack, depth) => rackNode(rack, depth)))),
-              h('div', { className: 'ms-light', 'aria-hidden': true }),
-              h('div', { className: 'ms-vignette', 'aria-hidden': true }))),
+          : hall,
+        query || !pageFailed
+          ? null
+          : h('p', { className: 'ms-muted' }, '这一面暂时读不出来，稍后再滚一次'),
         query
           ? null
           : h('p', { className: 'ms-hint' },
-            recent.length === 0
+            total === 0
               ? '还没有记忆。去跟模型说一句「记住：…」吧'
-              : '点亮一颗球，看看它装的是什么。'),
-        !query && selected
-          ? h('div', { className: 'ms-card', key: selected.id },
-            Array.from(selected.text).slice(0, CARD_TEXT_LIMIT).join(''))
+              : '滚轮翻墙：往前更旧、往后更新；点亮一颗球看正文，再点一次收起。'),
+        !query && detail
+          ? h('div', { className: 'ms-card', key: detail.id, role: 'status', 'aria-live': 'polite' },
+            detail.status === 'loading'
+              ? '读取中…'
+              : detail.status === 'error'
+                ? '这条读不出来了'
+                : h('div', null,
+                  h('p', { style: { margin: 0 } },
+                    Array.from(String(detail.text ?? '')).slice(0, CARD_TEXT_LIMIT).join('')),
+                  h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
+                    `${ballPalette(detail.type).label} · ${ballDayLabel(detail.recorded_at)}`)))
           : null,
       );
     }
@@ -682,7 +853,7 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots'],
-      __test: { resolveMemory, fetchMemory, MemoryPanel },
+      __test: { resolveMemory, fetchMemory, MemoryPanel, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics },
       apply(ctx) {
         ctx.slots.inject('main', () =>
           ctx.slots.register({ name: 'main', key: NS }, MemoryPanel),

@@ -15,6 +15,13 @@ import {
 import { searchMemories } from '../read/search.mjs';
 
 const RECENT_LIMIT = 5;
+/**
+ * One wall of the memory hall = 25 balls (5 rows x 5 columns). The panel asks
+ * for whole walls with `?offset=&limit=` on the same summary route, so a profile
+ * that last loaded a bundled client still gets the old five-row payload.
+ */
+const PAGE_LIMIT_DEFAULT = 25;
+const PAGE_LIMIT_MAX = 100;
 const SEARCH_LIMIT_DEFAULT = 20;
 const SEARCH_LIMIT_MAX = 50;
 const QUERY_MAX_CHARS = 200;
@@ -72,6 +79,54 @@ export function buildSummary(
     // tools-only text because no tokenizer/H reached it.
     inject: { level: inject?.level ?? 'unavailable', reason: inject?.reason ?? null },
   };
+}
+
+const MEMORY_COLUMNS = 'id, text, type, weight, recorded_at';
+
+function mapMemoryRow(row) {
+  return {
+    id: row.id,
+    text: truncate(row.text),
+    type: row.type ?? null,
+    weight: typeof row.weight === 'number' ? row.weight : null,
+    recorded_at: row.recorded_at ?? null,
+  };
+}
+
+/**
+ * One page of the memory hall: `limit` rows starting at `offset`, newest first.
+ * Same ordering as `recent` (recorded_at DESC, id DESC) so index 0 is the newest
+ * memory, index 24 closes the first wall, index 25 opens the second one.
+ */
+export function buildSummaryPage(main, { offset = 0, limit = PAGE_LIMIT_DEFAULT } = {}) {
+  const db = typeof main === 'function' ? main() : main;
+  const total = Number(db.prepare('SELECT COUNT(*) AS n FROM memories').get()?.n ?? 0);
+  const items = db
+    .prepare(
+      `SELECT ${MEMORY_COLUMNS} FROM memories ORDER BY recorded_at DESC, id DESC LIMIT ? OFFSET ?`,
+    )
+    .all(limit, offset)
+    .map(mapMemoryRow);
+  return { total, offset, limit, has_more: offset + items.length < total, items };
+}
+
+/**
+ * `?offset=&limit=` switches the summary route into page mode. A plain GET (no
+ * paging params) must keep returning the full summary object the settings panel
+ * and the pre-hall client rely on.
+ */
+export function parsePageParams(url) {
+  const params = readQuery(url);
+  if (!params.has('offset') && !params.has('limit')) return { paged: false };
+  const rawOffset = params.get('offset') ?? '0';
+  const rawLimit = params.get('limit') ?? String(PAGE_LIMIT_DEFAULT);
+  if (!/^(0|[1-9][0-9]*)$/.test(String(rawOffset).trim())) return { paged: true, error: 'invalid_offset' };
+  const offset = Number(String(rawOffset).trim());
+  if (!Number.isSafeInteger(offset)) return { paged: true, error: 'invalid_offset' };
+  if (!/^[1-9][0-9]*$/.test(String(rawLimit).trim())) return { paged: true, error: 'invalid_limit' };
+  const limit = Number(String(rawLimit).trim());
+  if (!Number.isSafeInteger(limit) || limit > PAGE_LIMIT_MAX) return { paged: true, error: 'invalid_limit' };
+  return { paged: true, offset, limit };
 }
 
 /**
@@ -324,6 +379,21 @@ export function createSummaryHandler({
     }
     if (req.method && req.method !== 'GET') {
       send(res, 405, { error: 'method_not_allowed' });
+      return;
+    }
+    // Hall paging rides the same exact route: `?offset=&limit=` returns one wall,
+    // plain GET keeps the full summary. No new route registration required.
+    const paging = parsePageParams(req.url);
+    if (paging.paged) {
+      if (paging.error) {
+        send(res, 400, { error: paging.error });
+        return;
+      }
+      try {
+        send(res, 200, buildSummaryPage(main, { offset: paging.offset, limit: paging.limit }));
+      } catch (err) {
+        send(res, 503, { error: 'summary_unavailable', message: String(err?.code ?? err?.message ?? err) });
+      }
       return;
     }
     try {
