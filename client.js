@@ -7,6 +7,22 @@ window.__ModuleLoader__.load({
     const API = '/dsh-memsys/api/summary';
     const CONFIG = '/dsh-memsys/api/config';
     const SEARCH = '/dsh-memsys/api/search';
+    const DETAIL = '/dsh-memsys/api/memory';
+
+    // A ball is only guaranteed to be inside `recent` right after a refresh; a
+    // stale shelf or a future paged shelf can hold ids the payload no longer has.
+    // Then the card has to be fetched by id instead of silently doing nothing.
+    async function fetchMemory(id) {
+      const response = await fetch(DETAIL + '?id=' + encodeURIComponent(id));
+      if (!response.ok) throw new Error(String(response.status));
+      return response.json();
+    }
+
+    function resolveMemory(id, recent, fetcher) {
+      const local = (recent ?? []).find((memory) => memory.id === id);
+      if (local) return Promise.resolve(local);
+      return fetcher(id);
+    }
     const PERSONA = '/dsh-memsys/api/persona';
 
     function useSummary() {
@@ -322,6 +338,18 @@ window.__ModuleLoader__.load({
           className: 'ms-slot',
           role: 'listitem',
           style: ballVars(memory, index, depth, compact),
+          // Decoration layers are pointer-events:none, so a click lands here.
+          // The handler lives on the slot: the ball must not toggle twice.
+          onClick: () => {
+            if (pressed) {
+              setSelectedId(null);
+              setDetail(null);
+              setDetailFailed(false);
+              return;
+            }
+            setSelectedId(memory.id);
+            openMemory(memory.id);
+          },
         },
         h('span', { className: 'ms-cushion', 'aria-hidden': true }),
         h('span', { className: 'ms-stand' },
@@ -332,7 +360,7 @@ window.__ModuleLoader__.load({
             'aria-label': `${memory.text}（${palette.label} · ${ballDayLabel(memory.recorded_at)}）`,
             title: `${memory.text} · ${palette.label} · ${ballDayLabel(memory.recorded_at)}`,
             'data-type': memory.type,
-            onClick: () => setSelectedId(pressed ? null : memory.id),
+
           })),
         h('span', { className: 'ms-lip', 'aria-hidden': true }));
       };
@@ -396,7 +424,7 @@ window.__ModuleLoader__.load({
         h('style', { dangerouslySetInnerHTML: { __html: BALL_CSS } }),
         h('h2', { style: { margin: '0 0 8px' } }, '记忆'),
         h('p', { className: 'ms-counts' },
-          `记忆 ${state.memories} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
+          `记忆 ${state.total ?? state.memories} 条 · 球架显示最近 ${state.recent_limit ?? recent.length} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
         h('input', {
           className: 'ms-search',
           type: 'search',
@@ -654,6 +682,7 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots'],
+      __test: { resolveMemory, fetchMemory, MemoryPanel },
       apply(ctx) {
         ctx.slots.inject('main', () =>
           ctx.slots.register({ name: 'main', key: NS }, MemoryPanel),

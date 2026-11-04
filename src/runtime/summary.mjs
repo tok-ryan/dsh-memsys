@@ -56,6 +56,10 @@ export function buildSummary(
   for (const key of MODULE_KEYS) effective[key] = modules?.[key] !== false;
   return {
     memories: one('SELECT COUNT(*) AS n FROM memories'),
+    // total === memories, stated explicitly so the panel never has to guess
+    // whether "记忆 N 条" counts everything or only the balls it renders.
+    total: one('SELECT COUNT(*) AS n FROM memories'),
+    recent_limit: RECENT_LIMIT,
     candidates: one("SELECT COUNT(*) AS n FROM candidates WHERE status IN ('pending', 'conflicted')"),
     pending_due: one("SELECT COUNT(*) AS n FROM memories WHERE due_state = 'pending-due'"),
     recent,
@@ -155,6 +159,58 @@ export function createSearchHandler({ main, clock, logger = console } = {}) {
     } catch (err) {
       logger?.warn?.(`[dsh-memsys] search failed: ${err?.message ?? err}`);
       send(res, 503, { error: 'search_unavailable', message: String(err?.code ?? err?.message ?? err) });
+    }
+  };
+}
+
+const MEMORY_ID_PATTERN = /^mem_[0-9A-Za-z:_-]{1,200}$/;
+
+/**
+ * GET /dsh-memsys/api/memory?id=mem_…
+ * Reads one memory through the same read path as memsys_get; 404 when the id
+ * does not resolve, 503 when the read layer itself fails.
+ */
+export function createMemoryHandler({ load } = {}) {
+  const send = (res, status, payload) => {
+    res.statusCode = status;
+    res.setHeader('content-type', 'application/json');
+    res.setHeader('cache-control', 'no-store');
+    res.end(JSON.stringify(payload));
+  };
+
+  return (req, res) => {
+    if (!isLoopback(req) || !sameOrigin(req)) {
+      send(res, 403, { error: 'forbidden' });
+      return;
+    }
+    if (req.method && req.method !== 'GET') {
+      send(res, 405, { error: 'method_not_allowed' });
+      return;
+    }
+    const id = String(readQuery(req.url).get('id') ?? '').trim();
+    if (!id) {
+      send(res, 400, { error: 'empty_id' });
+      return;
+    }
+    if (!MEMORY_ID_PATTERN.test(id)) {
+      send(res, 400, { error: 'invalid_id' });
+      return;
+    }
+    try {
+      const result = load?.(id);
+      const item = (result?.items ?? []).find((entry) => entry.id === id) ?? null;
+      if (!item) {
+        send(res, 404, { error: 'not_found' });
+        return;
+      }
+      send(res, 200, {
+        id: item.id,
+        text: truncate(item.text),
+        kind: item.type ?? null,
+        created_at: item.recorded_at ?? null,
+      });
+    } catch (err) {
+      send(res, 503, { error: 'memory_unavailable', message: String(err?.code ?? err?.message ?? err) });
     }
   };
 }

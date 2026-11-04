@@ -12,7 +12,8 @@ import {
   resolveModulesDetail,
   writeUiConfig,
 } from '../src/runtime/ui-config.mjs';
-import { buildSummary, createSearchHandler, createSummaryHandler } from '../src/runtime/summary.mjs';
+import { buildSummary, createMemoryHandler, createSearchHandler, createSummaryHandler } from '../src/runtime/summary.mjs';
+import { createReadHandler } from '../src/tools/read.mjs';
 import { registerHostTools } from '../src/runtime/tools.mjs';
 import { conservativeTokens } from '../src/context/budget.mjs';
 import { insertRow } from '../src/storage/repositories.mjs';
@@ -109,6 +110,8 @@ test('P6/UI: modules default to all true and the summary exposes seven keys', (t
     'modules_source',
     'pending_due',
     'recent',
+    'recent_limit',
+    'total',
   ]);
   assert.deepEqual(Object.keys(summary.modules).sort(), [...MODULE_KEYS].sort());
   assert.equal(Object.values(summary.modules).filter(Boolean).length, 7);
@@ -402,6 +405,7 @@ test('P6/UI: with webServer the two exact routes serve loopback and reject cross
         ['exact', '/dsh-memsys/api/summary'],
         ['exact', '/dsh-memsys/api/config'],
         ['exact', '/dsh-memsys/api/search'],
+        ['exact', '/dsh-memsys/api/memory'],
         ['exact', '/dsh-memsys/api/persona'],
       ],
     );
@@ -631,4 +635,70 @@ test('P6/UI: the browser half renders a debounced search box and never builds HT
   // The only innerHTML-ish call is the <style> block; result rows are React text nodes.
   assert.equal((code.match(/dangerouslySetInnerHTML/g) ?? []).length, 1);
   assert.equal((code.match(/innerHTML/g) ?? []).length, 0, 'no raw innerHTML: rows are text nodes');
+});
+
+test('P6/UI: memory route returns one item by id, and 404s an unknown id', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+
+  const observation = makeObservation(ctx, { text: '主人不吃香菜。' });
+  insertRow(ctx.main, 'observations', observation);
+  const candidate = makeCandidate(ctx, observation, { businessKey: 'ui-detail-1', text: '不吃香菜' });
+  insertRow(ctx.main, 'candidates', candidate);
+  const memory = makeMemory(ctx, candidate, { businessKey: 'ui-detail-mem' });
+  insertRow(ctx.main, 'memories', memory);
+
+  const read = createReadHandler({ main: ctx.main, control: ctx.control, clock: ctx.clock });
+  const handler = createMemoryHandler({ load: (id) => read.get({ ids: [id] }) });
+
+  const ok = fakeRes();
+  handler(fakeReq({ url: '/dsh-memsys/api/memory?id=' + memory.id, headers: { host: '127.0.0.1:50478' } }), ok);
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.json().id, memory.id);
+  assert.equal(typeof ok.json().text, 'string');
+
+  const missing = fakeRes();
+  handler(fakeReq({ url: '/dsh-memsys/api/memory?id=mem_0000deadbeef' }), missing);
+  assert.equal(missing.statusCode, 404);
+  assert.equal(missing.json().error, 'not_found');
+
+  const empty = fakeRes();
+  handler(fakeReq({ url: '/dsh-memsys/api/memory' }), empty);
+  assert.equal(empty.statusCode, 400);
+  assert.equal(empty.json().error, 'empty_id');
+
+  const cross = fakeRes();
+  handler(fakeReq({ url: '/dsh-memsys/api/memory?id=' + memory.id, headers: { origin: 'https://evil.example', host: '127.0.0.1:50478' } }), cross);
+  assert.equal(cross.statusCode, 403);
+});
+
+test('P6/UI: a ball outside recent fetches its own memory, a local one does not', async () => {
+  const code = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8');
+  let loaded = null;
+  const window = { __ModuleLoader__: { load: (mod) => { loaded = mod; } } };
+  new Function('window', code)(window);
+  const React = { createElement: () => null, useState: () => [null, () => {}], useEffect: () => {} };
+  const plugin = loaded.factory((name) => { assert.equal(name, 'react'); return React; });
+  const { resolveMemory } = plugin.__test;
+
+  const calls = [];
+  const fetcher = (id) => { calls.push(id); return Promise.resolve({ id, text: 'remote' }); };
+
+  const localHit = await resolveMemory('mem_local', [{ id: 'mem_local', text: 'local' }], fetcher);
+  assert.equal(localHit.text, 'local');
+  assert.deepEqual(calls, [], 'a ball already in recent must not hit the network');
+
+  const remote = await resolveMemory('mem_remote', [{ id: 'mem_local', text: 'local' }], fetcher);
+  assert.deepEqual(calls, ['mem_remote'], 'a stale/foreign id must be fetched by id');
+  assert.equal(remote.text, 'remote');
+
+  // detail endpoint url + the click handler live on the slot, not under a decoration
+  assert.ok(code.includes("const DETAIL = '/dsh-memsys/api/memory'"));
+  assert.ok(code.includes("DETAIL + '?id=' + encodeURIComponent(id)"));
+  const slotStart = code.indexOf("className: 'ms-slot'");
+  const slotBlock = code.slice(slotStart, slotStart + 900);
+  assert.ok(slotBlock.includes('onClick:'), 'the slot itself carries the click handler');
+  const ballStart = code.indexOf("className: 'ms-ball'");
+  const ballBlock = code.slice(ballStart, ballStart + 700);
+  assert.equal(ballBlock.includes('onClick'), false, 'the ball must not toggle a second time');
 });
