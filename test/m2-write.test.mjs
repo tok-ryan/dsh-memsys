@@ -599,9 +599,12 @@ test('M2 deadlines, due projections and default exits', async (t) => {
     const memory = ctx.main.prepare('SELECT * FROM memories LIMIT 1').get();
     assert.equal(memory.due_state, 'pending-due');
 
+    const enqueuedAt = Date.parse(
+      ctx.main.prepare('SELECT enqueued_at FROM due_queue WHERE memory_id = ?').get(memory.id).enqueued_at,
+    );
     const clockPair = mutableClock();
     const movingDeps = { main: ctx.main, control: ctx.control, clock: clockPair.clock };
-    clockPair.advance(15 * DAY);
+    clockPair.set(new Date(enqueuedAt + 15 * DAY).toISOString());
     const aged = agePendingDue(ctx.main, { clock: clockPair.clock });
     assert.equal(aged.aged, 1);
     assert.equal(ctx.main.prepare('SELECT due_state FROM memories WHERE id = ?').get(memory.id).due_state, 'shelved-due');

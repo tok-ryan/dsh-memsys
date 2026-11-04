@@ -230,7 +230,7 @@ export function getMemories({
         status: 'ok',
         items,
         missing_ids: missing,
-        snapshot_revision: currentRevision(main),
+        snapshot_revision: `rev_${currentRevision(main)}`,
         next_cursor: nextCursor,
         truncated: nextCursor !== null,
       };
@@ -282,7 +282,7 @@ export function getMemories({
         ids, index, offset: 0, evIndex: nextEv.evIndex, evOffset: nextEv.evOffset,
         versions: state.versions ?? versionMapOf(main, ids),
       });
-      return { status: 'ok', items, missing_ids: missing, snapshot_revision: currentRevision(main), next_cursor: nextCursor, truncated: true, clock: reading };
+      return { status: 'ok', items, missing_ids: missing, snapshot_revision: `rev_${currentRevision(main)}`, next_cursor: nextCursor, truncated: true, clock: reading };
     }
     if (offset === 0 && used + codePoints(text) <= budget) {
       if (includeEvidence && Array.isArray(formatted.evidence)) {
@@ -315,7 +315,7 @@ export function getMemories({
             ids, index, offset: 0, evIndex: nextEv.evIndex, evOffset: nextEv.evOffset,
             versions: state.versions ?? versionMapOf(main, ids),
           });
-          return { status: 'ok', items, missing_ids: missing, snapshot_revision: currentRevision(main), next_cursor: nextCursor, truncated: true, clock: reading };
+          return { status: 'ok', items, missing_ids: missing, snapshot_revision: `rev_${currentRevision(main)}`, next_cursor: nextCursor, truncated: true, clock: reading };
         }
       }
       items.push(formatted);
@@ -353,7 +353,7 @@ export function getMemories({
       status: 'ok',
       items,
       missing_ids: missing,
-      snapshot_revision: currentRevision(main),
+      snapshot_revision: `rev_${currentRevision(main)}`,
       next_cursor: nextCursor,
       truncated: nextCursor !== null,
       clock: reading,
@@ -364,7 +364,7 @@ export function getMemories({
     status: 'ok',
     items,
     missing_ids: missing,
-    snapshot_revision: currentRevision(main),
+    snapshot_revision: `rev_${currentRevision(main)}`,
     next_cursor: null,
     truncated: false,
     clock: reading,

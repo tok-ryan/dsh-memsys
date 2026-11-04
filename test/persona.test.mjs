@@ -301,7 +301,9 @@ test('PERSONA: section order is persona 400 before memory 500, and the master sw
     assert.equal(typeof personaSection.text, 'function', 'the persona text is re-read per assemble');
     assert.ok(personaSection.text().length > 0, 'the packaged seed reaches the section');
 
-    const save = post(host.routes[3].handler, { text: '主人写的人格：多短句，先给结论。' });
+    const personaRoute = host.routes.find((route) => route.path === '/dsh-memsys/api/persona');
+    assert.ok(personaRoute, 'persona route registered');
+    const save = post(personaRoute.handler, { text: '主人写的人格：多短句，先给结论。' });
     assert.equal(save.statusCode, 200);
     assert.equal(save.json().version, 2);
     assert.ok(personaSection.text().includes('先给结论'), 'a save is visible to the next assembly');

@@ -85,7 +85,8 @@ test('M5 memsys_get contract', async (t) => {
     assert.deepEqual(result.missing_ids, ['mem_missing']);
     assert.equal(result.items[0].text, '可读取的记忆');
     assert.equal(result.items[0].group.key_status, 'unresolved');
-    assert.equal(typeof result.snapshot_revision, 'number');
+    assert.equal(typeof result.snapshot_revision, 'string');
+    assert.match(result.snapshot_revision, /^rev_\d+$/);
     assert.ok(result.clock);
   });
 

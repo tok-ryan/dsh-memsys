@@ -150,6 +150,7 @@ export const TOOL_OUTPUT_SCHEMAS = Object.freeze({
       evidence_formula: { type: 'string' },
       relation_search: { type: 'string' },
       relation_depth: NULLABLE('integer'),
+      feature: { type: 'string' },
       next_cursor: NULLABLE('string'),
       truncated: { type: 'boolean' },
       clock: { type: 'string' },
@@ -193,7 +194,7 @@ export const TOOL_OUTPUT_SCHEMAS = Object.freeze({
       clock: { type: 'string' },
       code: { type: 'string' },
       message: { type: 'string' },
-      fresh_report_entry: openObject(),
+      fresh_report_entry: { oneOf: [openObject(), { type: 'null' }] },
     },
   },
   memsys_review_get: {
@@ -208,6 +209,7 @@ export const TOOL_OUTPUT_SCHEMAS = Object.freeze({
       clock: { type: 'string' },
       code: { type: 'string' },
       message: { type: 'string' },
+      reason: { type: 'string' },
     },
   },
   memsys_self_get: {
@@ -217,11 +219,14 @@ export const TOOL_OUTPUT_SCHEMAS = Object.freeze({
       status: { type: 'string' },
       kind: { type: 'string' },
       items: { type: 'array', items: openObject() },
+      missing_ids: { type: 'array', items: { type: 'string' } },
+      total_count: { type: 'integer' },
       next_cursor: NULLABLE('string'),
       truncated: { type: 'boolean' },
       clock: { type: 'string' },
       code: { type: 'string' },
       message: { type: 'string' },
+      reason: { type: 'string' },
     },
   },
   memsys_project_get: {
@@ -239,6 +244,7 @@ export const TOOL_OUTPUT_SCHEMAS = Object.freeze({
       clock: { type: 'string' },
       code: { type: 'string' },
       message: { type: 'string' },
+      reason: { type: 'string' },
     },
   },
   // These surfaces have several success shapes; keep the root open until each
