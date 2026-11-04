@@ -3,10 +3,22 @@
 ## 0.3.1
 
 ### Fixed
+
 - **球架上的球点不动**：3D 台面（`rotateX(62deg)` 的 deck / 前缘 / 背板 / 立柱）压在球前面，
-  命中测试落在 `.ms-rack` 上而不是 `.ms-ball` 按钮。修法：装板类装饰件 `pointer-events:none`，
-  架子容器本身也不拦点击，只把球位那一串恢复可点；整排球位再往观众方向抬 14px。
-  验证方式：无头浏览器 `elementFromPoint(球心)` 从 `ms-rack` 变为 `BUTTON.ms-ball`。
+  命中测试落在 `.ms-rack` 上而不是 `.ms-ball` 按钮。修法：装饰件 `pointer-events:none`，
+  架子容器本身不拦点击，只把球位那一串恢复可点；整排球位再往观众方向抬 14px。
+  验证方式：无头浏览器 `elementFromPoint(球心)` 从 `.ms-rack` 变为 `BUTTON.ms-ball`。
+- **面板数量对不上**：顶部显示的是总数（如「记忆 25 条」），球架只渲染 `recent`（最近 5 条），
+  看起来像丢数据。修法：顶部写明「球架显示最近 5 条」，`/api/summary` 补 `total` 与 `recent_limit`。
+- **点击死区（球位里球圆外那圈）**：`onClick` 原本只挂在 44px 的 `.ms-ball` 上，点在软垫/托座上没反应。
+  修法：handler 挪到整块 `.ms-slot`，球上移除避免冒泡双触发。
+- **点开看不到正文**：卡片只从 `recent` 里找，球不属于最近 5 条时就是空白。
+  修法：新增 `GET /dsh-memsys/api/memory?id=`（复用读路径，loopback + 同源鉴权，
+  400 `empty_id`/`invalid_id`、404 `not_found`），本地没有就单条拉取，取不到显示「这条读不出来了」。
+- **read 工具输出与注册 schema 不一致**：`memsys_get` 被宿主判 `value.snapshot_revision must be a string`。
+  修法：六个 read 工具的返回体与 `output.schema` 逐字段对齐（`get` 的真实值 `rev_<n>`、
+  `review_get`/`self_get`/`project_get` 补 `reason` 等字段、`context_get` 的报告字段允许 null），
+  并新增 `P6/schema: read tool outputs satisfy their registered output schemas`，用真实返回值跑校验。
 
 ## 0.3.0
 
