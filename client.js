@@ -45,102 +45,313 @@ window.__ModuleLoader__.load({
       return [state, setState];
     }
 
-    // Memory hall: a corridor of walls built with plain CSS 3D. No library, no
-    // build step, no external resource: perspective + preserve-3d + one float
-    // keyframe, reusing the glass-ball optics the old shelf already had.
-    // Geometry: a 5x5 front wall, the side face of the next (older) wall on the
-    // right, and a base band under both. One wheel step turns the whole wall.
+    // Memory hall, carried over from the confirmed preview: deep walnut racks,
+    // white velvet pads, the next rack parked right-and-back, and one wheel
+    // notch = one whole rack sliding over. Pure CSS 3D, no library, no assets.
     const BALL_CSS = [
-'@keyframes msFloat{0%,100%{translate:0 0}50%{translate:0 -.030em}}',
-'@keyframes msDevelop{0%{opacity:0;transform:scale(.70);filter:blur(.08em)}45%{opacity:1}100%{opacity:1;transform:scale(1);filter:blur(0)}}',
-'@keyframes msWait{0%,100%{opacity:.55}50%{opacity:1}}',
+'.ms-hall-scene *{ box-sizing: border-box; }',
+'.ms-hall-scene{',
+'    --w0: #100904;',
+'    --w1: #170e07;',
+'    --w2: #21130a;',
+'    --w3: #2b1a0d;',
+'    --w4: #362110;',
+'    --w5: #412714;',
+'    --w6: #4a2e17;',
+'    --w7: #54361b;',
+'    --w8: #5e3d1f;',
+'    --w9: #6a4525;',
+'    --w10: #79512e;',
+'    --w11: #8a623b;',
+'  }',
+'.ms-hall-scene{',
+'    position: relative; width: 900px; height: 620px;',
+'    perspective: 2000px;',
+'    perspective-origin: 46% 56%;',
+'  }',
+'.ms-hall-scene .ms-hall-ambient{',
+'    position: absolute; inset: 0; pointer-events: none; z-index: 30;',
+'    background:',
+'      radial-gradient(52% 42% at 40% 12%, rgba(255, 232, 196, .15), transparent 72%),',
+'      radial-gradient(66% 58% at 74% 42%, rgba(130, 86, 48, .09), transparent 72%);',
+'    mix-blend-mode: screen;',
+'  }',
+'.ms-hall-scene .ms-hall-vignette{',
+'    position: absolute; inset: 0; pointer-events: none; z-index: 40;',
+'    background: radial-gradient(122% 105% at 46% 42%, transparent 44%, rgba(0, 0, 0, .62) 100%);',
+'  }',
+'.ms-hall-scene .ms-hall-floor{',
+'    position: absolute; left: 26px; right: 50px; bottom: 0; height: 80px; z-index: 1;',
+'    background: radial-gradient(58% 100% at 42% 100%, rgba(0, 0, 0, .68), transparent 70%);',
+'    filter: blur(7px);',
+'  }',
+'.ms-hall-scene .ms-hall-floor-back{',
+'    position: absolute; right: 54px; bottom: 26px; width: 320px; height: 64px; z-index: 1;',
+'    background: radial-gradient(60% 100% at 62% 100%, rgba(0, 0, 0, .5), transparent 72%);',
+'    filter: blur(9px);',
+'  }',
+'.ms-hall-scene .ms-rack{',
+'    position: absolute; left: 26px; top: 24px; width: 620px; height: 556px;',
+'    transform-style: preserve-3d;',
+'  }',
+'.ms-hall-scene .ms-rack::after{',
+'    content: ""; position: absolute; inset: 0; z-index: 21; pointer-events: none;',
+'    border-radius: 3px;',
+'    background:',
+'      repeating-linear-gradient(91deg, rgba(255, 226, 186, .022) 0 1px, transparent 1px 6px),',
+'      repeating-linear-gradient(89deg, rgba(0, 0, 0, .10) 0 1px, transparent 1px 11px);',
+'    mix-blend-mode: overlay;',
+'    opacity: .8;',
+'  }',
+'.ms-hall-scene .ms-hall-back{',
+'    position: absolute; left: 38px; right: 38px; top: 30px; bottom: 30px;',
+'    transform: translateZ(-30px);',
+'    background:',
+'      radial-gradient(90% 70% at 30% 14%, rgba(255, 220, 176, .09), transparent 62%),',
+'      repeating-linear-gradient(90deg, rgba(0, 0, 0, .34) 0 2px, rgba(255, 255, 255, .018) 2px 3px, transparent 3px 46px),',
+'      linear-gradient(180deg, var(--w2) 0%, var(--w1) 54%, #0d0703 100%);',
+'    box-shadow:',
+'      inset 0 0 110px rgba(0, 0, 0, .88),',
+'      inset 0 0 0 1px rgba(0, 0, 0, .5);',
+'  }',
+'.ms-hall-scene .ms-hall-post{',
+'    position: absolute; top: 0; bottom: 0; width: 38px; z-index: 12;',
+'    transform: translateZ(16px);',
+'    border-radius: 2px;',
+'    background:',
+'      repeating-linear-gradient(90deg, rgba(0, 0, 0, .14) 0 1px, rgba(255, 255, 255, .03) 1px 2px, transparent 2px 7px),',
+'      linear-gradient(90deg, var(--w1) 0%, var(--w3) 8%, var(--w5) 24%, var(--w7) 44%, var(--w6) 60%, var(--w4) 78%, var(--w2) 92%, var(--w0) 100%);',
+'    box-shadow:',
+'      inset 0 1px 0 rgba(255, 232, 194, .22),',
+'      inset 0 0 0 1px rgba(255, 220, 176, .06),',
+'      0 14px 26px -10px rgba(0, 0, 0, .8);',
+'  }',
+'.ms-hall-scene .ms-hall-post::before{',
+'    content: ""; position: absolute; inset: 0; border-radius: 2px;',
+'    background: linear-gradient(90deg, rgba(255, 234, 198, .26) 0 1px, rgba(255, 234, 198, .05) 2px, transparent 5px);',
+'  }',
+'.ms-hall-scene .ms-hall-post::after{',
+'    content: ""; position: absolute; top: 0; bottom: 0; width: 11px;',
+'    background: linear-gradient(90deg, rgba(0, 0, 0, .62), transparent);',
+'    border-radius: 2px;',
+'  }',
+'.ms-hall-scene .ms-hall-post-l{ left: 0; }',
+'.ms-hall-scene .ms-hall-post-r{ right: 0; }',
+'.ms-hall-scene .ms-hall-post-r::after{ left: auto; right: 0; background: linear-gradient(270deg, rgba(0, 0, 0, .62), transparent); }',
+'.ms-hall-scene .ms-hall-post-r::before{ background: linear-gradient(270deg, rgba(255, 234, 198, .20) 0 1px, transparent 5px); }',
+'.ms-hall-scene .ms-hall-rail{',
+'    position: absolute; left: 0; right: 0; height: 30px; z-index: 13;',
+'    transform: translateZ(14px);',
+'    background:',
+'      repeating-linear-gradient(90deg, rgba(0, 0, 0, .12) 0 1px, rgba(255, 255, 255, .03) 1px 2px, transparent 2px 6px),',
+'      linear-gradient(180deg, var(--w10) 0%, var(--w8) 12%, var(--w6) 40%, var(--w4) 72%, var(--w2) 100%);',
+'    box-shadow:',
+'      inset 0 2px 0 rgba(255, 240, 210, .34),',
+'      inset 0 -4px 5px rgba(0, 0, 0, .48),',
+'      0 10px 18px -7px rgba(0, 0, 0, .7);',
+'  }',
+'.ms-hall-scene .ms-hall-rail::after{',
+'    content: ""; position: absolute; left: 0; right: 0; bottom: -9px; height: 9px;',
+'    background: linear-gradient(180deg, rgba(0, 0, 0, .6), transparent);',
+'  }',
+'.ms-hall-scene .ms-hall-rail-top{ top: 0; border-radius: 3px 3px 0 0; }',
+'.ms-hall-scene .ms-hall-rail-bottom{ bottom: 0; border-radius: 0 0 3px 3px; }',
+'.ms-hall-scene .ms-hall-rail-bottom::after{ top: -9px; bottom: auto; background: linear-gradient(0deg, rgba(0, 0, 0, .6), transparent); }',
+'.ms-hall-scene .ms-hall-cap{',
+'    position: absolute; left: -9px; right: -9px; top: -9px; height: 13px; z-index: 16;',
+'    transform: translateZ(22px);',
+'    border-radius: 3px;',
+'    background:',
+'      repeating-linear-gradient(90deg, rgba(0, 0, 0, .12) 0 1px, rgba(255, 255, 255, .03) 1px 2px, transparent 2px 6px),',
+'      linear-gradient(180deg, var(--w11) 0%, var(--w9) 36%, var(--w6) 100%);',
+'    box-shadow:',
+'      inset 0 2px 0 rgba(255, 246, 220, .38),',
+'      0 4px 8px -3px rgba(0, 0, 0, .65);',
+'  }',
+'.ms-hall-scene .ms-hall-cap::after{',
+'    content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 6px;',
+'    background: linear-gradient(180deg, rgba(0, 0, 0, .55), transparent);',
+'  }',
+'.ms-hall-scene .ms-hall-shelf{',
+'    position: absolute; left: 38px; right: 38px; height: 26px; z-index: 6;',
+'    transform: translateZ(18px);',
+'    top: calc(17px + var(--r) * 99.2px);',
+'    border-radius: 1px;',
+'    background:',
+'      repeating-linear-gradient(90deg, rgba(72, 44, 20, .30) 0 1px, rgba(255, 236, 200, .05) 1px 2px, transparent 2px 4px),',
+'      linear-gradient(180deg, var(--w11) 0%, var(--w10) 18%, var(--w8) 46%, var(--w5) 76%, var(--w3) 100%);',
+'    box-shadow:',
+'      inset 0 1px 0 rgba(255, 246, 224, .58),',
+'      inset 0 -2px 0 rgba(0, 0, 0, .38),',
+'      0 8px 10px -4px rgba(0, 0, 0, .6);',
+'  }',
+'.ms-hall-scene .ms-hall-shelf::before{',
+'    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;',
+'    background: linear-gradient(90deg, rgba(255, 246, 224, .7), rgba(255, 246, 224, .22) 30%, rgba(255, 246, 224, .5));',
+'  }',
+'.ms-hall-scene .ms-hall-shelf::after{',
+'    content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 8px;',
+'    background: linear-gradient(180deg, rgba(0, 0, 0, .66), transparent);',
+'  }',
+'.ms-hall-scene .ms-hall-rows{',
+'    position: absolute; left: 38px; right: 38px; top: 30px; bottom: 30px;',
+'    display: flex; flex-direction: column; z-index: 8;',
+'    transform-style: preserve-3d;',
+'  }',
+'.ms-hall-scene .ms-hall-row{',
+'    position: relative; flex: 1;',
+'    display: flex; align-items: flex-end; justify-content: space-around;',
+'    padding: 0 6px;',
+'  }',
+'.ms-hall-scene .ms-slot{ position: relative; width: 104px; height: 100%; }',
+'.ms-hall-scene .ms-slot::before{',
+'    content: ""; position: absolute; left: 50%; bottom: 18px; width: 64px; height: 18px;',
+'    transform: translateX(-50%);',
+'    background: radial-gradient(closest-side, rgba(70, 52, 32, .46), rgba(70, 52, 32, .13) 64%, transparent 100%);',
+'    filter: blur(2.5px);',
+'    z-index: 1;',
+'  }',
+'.ms-hall-scene .ms-cushion{',
+'    position: absolute; left: 50%; bottom: 14px; width: 96px; height: 22px;',
+'    transform: translateX(-50%);',
+'    border-radius: 50%;',
+'    background:',
+'      radial-gradient(closest-side at 50% 62%, rgba(132, 110, 82, .30), rgba(132, 110, 82, .10) 46%, transparent 64%),',
+'      radial-gradient(closest-side at 46% 34%, #f9f2e6 0%, #f1e7d7 34%, #e3d6c1 64%, #ccba9f 86%, #b3a088 100%),',
+'      radial-gradient(closest-side at 26% 62%, rgba(196, 174, 144, .22), transparent 58%),',
+'      radial-gradient(closest-side at 74% 60%, rgba(196, 174, 144, .20), transparent 58%),',
+'      repeating-conic-gradient(from 96deg at 50% 50%, rgba(255, 255, 255, .05) 0deg 3deg, rgba(150, 130, 102, .05) 3deg 6deg);',
+'    box-shadow:',
+'      inset 0 -3px 7px rgba(110, 90, 66, .18),',
+'      0 3px 8px -4px rgba(24, 15, 7, .40),',
+'      0 0 9px rgba(255, 246, 228, .08);',
+'    filter: blur(2.8px);',
+'    z-index: 2;',
+'  }',
+'.ms-hall-scene .ms-cushion::before{',
+'    content: ""; position: absolute; inset: 10% 8%;',
+'    border-radius: 50%;',
+'    background:',
+'      radial-gradient(closest-side at 34% 32%, rgba(255, 255, 255, .38), transparent 58%),',
+'      radial-gradient(closest-side at 70% 70%, rgba(150, 130, 102, .16), transparent 66%),',
+'      radial-gradient(closest-side at 50% 90%, rgba(136, 116, 90, .16), transparent 70%);',
+'    filter: blur(3.6px);',
+'  }',
+'.ms-hall-scene .ms-cushion::after{',
+'    content: ""; position: absolute; inset: -6px;',
+'    border-radius: 50%;',
+'    transform: rotate(-4deg) scale(1.04);',
+'    background: radial-gradient(closest-side, rgba(248, 242, 230, .45) 0%, rgba(248, 242, 230, .30) 60%, rgba(248, 242, 230, .05) 86%, transparent 96%);',
+'    filter: blur(6px);',
+'    opacity: .65;',
+'  }',
+'.ms-hall-scene .ms-cushion-front{',
+'    position: absolute; left: 50%; bottom: 14px; width: 96px; height: 22px;',
+'    transform: translateX(-50%);',
+'    border-radius: 50%;',
+'    clip-path: inset(42% 0 0 0);',
+'    -webkit-mask: linear-gradient(180deg, transparent 32%, rgba(0, 0, 0, .30) 48%, #000 68%, #000 100%);',
+'    mask: linear-gradient(180deg, transparent 32%, rgba(0, 0, 0, .30) 48%, #000 68%, #000 100%);',
+'    background:',
+'      radial-gradient(closest-side at 50% 26%, rgba(154, 132, 102, .55) 0%, rgba(196, 178, 150, .62) 34%, rgba(230, 219, 201, .85) 62%, rgba(240, 232, 218, .9) 86%, rgba(206, 190, 166, .82) 100%);',
+'    box-shadow: inset 0 -2px 4px rgba(110, 90, 66, .18);',
+'    filter: blur(3.4px);',
+'    z-index: 4;',
+'  }',
+'.ms-hall-scene .ms-slot::after{',
+'    content: ""; position: absolute; left: 50%; bottom: 13px; width: 74px; height: 24px;',
+'    transform: translateX(-50%);',
+'    border-radius: 50%;',
+'    background: radial-gradient(closest-side, transparent 34%, rgba(92, 70, 46, .40) 50%, rgba(92, 70, 46, .16) 68%, transparent 86%);',
+'    filter: blur(2.5px);',
+'    z-index: 5;',
+'  }',
+'.ms-hall-scene .ms-ball{',
+'    position: absolute; left: 50%; bottom: 12px; width: 64px; height: 64px;',
+'    transform: translateX(-50%);',
+'    border-radius: 50%;',
+'    z-index: 3;',
+'    background:',
+'      radial-gradient(circle at 34% 24%, rgba(255, 255, 255, .98) 0, rgba(255, 255, 255, .78) 4%, rgba(255, 255, 255, .26) 12%, rgba(255, 255, 255, 0) 23%),',
+'      radial-gradient(circle at 50% 46%, transparent 45%, var(--edge) 84%, var(--edge) 100%),',
+'      linear-gradient(142deg, var(--hi) 0%, var(--core) 30%, var(--mid) 66%, var(--lo) 100%),',
+'      radial-gradient(circle at 50% 118%, rgba(255, 255, 255, .46), transparent 46%);',
+'    box-shadow:',
+'      inset 0 0 0 1.5px rgba(255, 255, 255, .28),',
+'      inset 5px 7px 15px rgba(255, 255, 255, .34),',
+'      inset -6px -9px 18px var(--dark),',
+'      inset -2px -3px 6px rgba(255, 255, 255, .38),',
+'      0 0 20px 2px var(--glow),',
+'      0 6px 14px -6px rgba(0, 0, 0, .55);',
+'  }',
+'.ms-hall-scene .ms-ball::before{',
+'    content: ""; position: absolute; inset: 0; border-radius: 50%;',
+'    background: conic-gradient(from 208deg at 50% 50%,',
+'      rgba(255, 255, 255, 0) 0deg, rgba(255, 255, 255, .16) 10deg,',
+'      rgba(255, 255, 255, .9) 28deg, #fff 38deg, rgba(255, 255, 255, .58) 54deg,',
+'      rgba(255, 255, 255, 0) 74deg);',
+'    -webkit-mask: radial-gradient(closest-side at 50% 50%, transparent 68%, #000 80%, #000 92%, transparent 100%);',
+'    mask: radial-gradient(closest-side at 50% 50%, transparent 68%, #000 80%, #000 92%, transparent 100%);',
+'    filter: blur(.4px);',
+'  }',
+'.ms-hall-scene .ms-ball::after{',
+'    content: ""; position: absolute; left: 12%; right: 12%; bottom: -8px; height: 14px;',
+'    border-radius: 50%;',
+'    background: radial-gradient(closest-side, rgba(84, 64, 42, .40), rgba(84, 64, 42, .14) 62%, transparent 84%);',
+'    filter: blur(2px);',
+'  }',
+'.ms-hall-scene .ms-hall-plinth{',
+'    position: absolute; left: 12px; top: 582px; width: 634px; height: 34px; z-index: 14;',
+'    transform: translateZ(22px);',
+'    background:',
+'      repeating-linear-gradient(90deg, rgba(0, 0, 0, .12) 0 1px, transparent 1px 8px),',
+'      linear-gradient(180deg, var(--w11) 0%, var(--w9) 14%, var(--w7) 38%, var(--w5) 66%, var(--w3) 88%, var(--w1) 100%);',
+'    box-shadow:',
+'      inset 0 2px 0 rgba(255, 242, 210, .38),',
+'      inset 0 -4px 6px rgba(0, 0, 0, .5),',
+'      0 16px 26px -12px rgba(0, 0, 0, .8);',
+'    border-radius: 3px;',
+'  }',
+'.ms-hall-scene .ms-hall-plinth::before{',
+'    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px;',
+'    background: linear-gradient(180deg, rgba(255, 240, 210, .55), rgba(255, 240, 210, .10));',
+'  }',
+'.ms-hall-scene .ms-hall-plinth::after{',
+'    content: ""; position: absolute; left: 1%; right: 1%; bottom: -5px; height: 5px;',
+'    background: linear-gradient(180deg, rgba(0, 0, 0, .6), transparent);',
+'  }',
+'.ms-hall-scene .ms-hall-seam{',
+'    position: absolute; left: 643px; top: 28px; width: 9px; height: 548px; z-index: 20;',
+'    pointer-events: none;',
+'    background: linear-gradient(90deg, rgba(0, 0, 0, .55) 0%, rgba(0, 0, 0, .20) 48%, rgba(0, 0, 0, 0) 100%);',
+'    -webkit-mask: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);',
+'    mask: linear-gradient(180deg, transparent 0%, #000 8%, #000 92%, transparent 100%);',
+'  }',
+'.ms-hall-scene .ms-hall-plinth-back{',
+'    position: absolute; left: 620px; top: 554px; width: 176px; height: 24px; z-index: 12;',
+'    border-radius: 2px;',
+'    background:',
+'      repeating-linear-gradient(90deg, rgba(0, 0, 0, .18) 0 1px, transparent 1px 7px),',
+'      linear-gradient(180deg, #573a21 0%, #452c18 20%, #33200f 54%, #241408 86%, #150c05 100%);',
+'    box-shadow:',
+'      inset 0 1px 0 rgba(255, 226, 186, .14),',
+'      inset 0 -3px 5px rgba(0, 0, 0, .55),',
+'      0 8px 14px -6px rgba(0, 0, 0, .9);',
+'    -webkit-mask: linear-gradient(90deg, transparent 0 38%, rgba(0, 0, 0, .35) 50%, #000 66%, #000 100%);',
+'    mask: linear-gradient(90deg, transparent 0 38%, rgba(0, 0, 0, .35) 50%, #000 66%, #000 100%);',
+'  }',
+'.ms-hall-scene .ms-hall-plinth-back::after{',
+'    content: ""; position: absolute; right: -3px; top: 0; bottom: 0; width: 3px;',
+'    background: linear-gradient(90deg, rgba(0, 0, 0, .45), transparent);',
+'  }',
+'.ms-hall-scene .ms-hall-shadow{',
+'    position: absolute; left: 26px; top: 24px; width: 620px; height: 556px; z-index: 2;',
+'    border-radius: 4px;',
+'    box-shadow: 30px 34px 70px -22px rgba(0, 0, 0, .9);',
+'    pointer-events: none;',
+'  }',
 '.ms-panel{padding:16px;line-height:1.7}',
 '.ms-counts{margin:0 0 10px;opacity:.85}',
-'.ms-hall{--wall-w:320px;--wall-h:290px;--stage-h:334px;--case-1:#f7f1e6;--case-2:#e6dac6;--case-edge:rgba(255,255,255,.9);',
-'--wall-1:#efe4d2;--wall-2:#ddcbb0;--wall-3:#b99a72;--plank:rgba(92,64,30,.26);--post-1:#c9a77a;--post-2:#7d5f3d;',
-'--base-1:#a5855c;--base-2:#5f4529;--rim:rgba(255,255,255,.55);--light:rgba(255,246,226,.55);',
-'--cushion-edge:rgba(0,0,0,.55);--cushion-rim:rgba(255,255,255,.75);',
-'--empty-dark:rgba(46,30,14,.44);--empty-rim:rgba(255,255,255,.60);--empty-glow:rgba(255,232,196,.30);',
-'--vignette:rgba(62,42,20,.20);--focus:#2f7bff;margin:0 0 10px}',
-'@media (prefers-color-scheme:dark){.ms-hall{--case-1:#121521;--case-2:#060810;--case-edge:rgba(150,185,255,.16);',
-'--wall-1:#1b1f2c;--wall-2:#12151f;--wall-3:#0a0c13;--plank:rgba(150,190,255,.10);--post-1:#2e261d;--post-2:#120e0a;',
-'--base-1:#20242f;--base-2:#080a10;--rim:rgba(150,190,255,.30);--light:rgba(120,170,255,.10);',
-'--cushion-edge:rgba(0,0,0,.70);--cushion-rim:var(--ms-rim);--vignette:rgba(0,0,0,.55);',
-'--empty-dark:rgba(0,0,0,.50);--empty-rim:rgba(190,220,255,.30);--empty-glow:rgba(150,195,255,.32);',
-'--focus:#6ea6ff}}',
-'.ms-hall-stage-wrap{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 20px 36px -30px rgba(4,8,18,.6)}',
-'.ms-hall-stage{position:relative;height:var(--stage-h,334px);overflow:hidden;perspective:1000px;perspective-origin:47% 56%;',
-'background:radial-gradient(90% 70% at 46% 0%,var(--light),transparent 62%),linear-gradient(180deg,var(--case-1),var(--case-2));',
-'box-shadow:inset 0 1px 0 var(--case-edge)}',
-'.ms-hall-world{position:absolute;inset:0;left:-2%;transform-style:preserve-3d}',
-'.ms-hall-wall{position:absolute;left:50%;top:50%;width:var(--wall-w);height:var(--wall-h);',
-'transform:translate(-50%,-50%) translate3d(var(--tx,0px),0,var(--tz,0px)) rotateY(var(--rot,0deg));',
-'transform-style:preserve-3d;border-radius:7px;transition:transform .55s cubic-bezier(.22,.72,.2,1),opacity .22s ease,visibility 0s;',
-'background:linear-gradient(180deg,var(--wall-1) 0%,var(--wall-2) 58%,var(--wall-3) 100%);',
-'box-shadow:inset 0 1px 0 var(--rim),inset 0 -14px 30px -18px rgba(0,0,0,.55),0 18px 40px -18px rgba(0,0,0,.55)}',
-'.ms-hall-wall::before{content:"";position:absolute;inset:0;border-radius:7px;pointer-events:none;',
-'box-shadow:inset 0 0 0 1px rgba(0,0,0,.22),inset 0 0 46px rgba(60,40,18,.22)}',
-'.ms-hall-wall::after{content:"";position:absolute;top:-5px;bottom:-5px;right:-7px;width:11px;border-radius:3px;pointer-events:none;',
-'background:linear-gradient(90deg,var(--post-1),var(--post-2));',
-'box-shadow:inset 1px 0 0 rgba(255,255,255,.30),0 0 16px rgba(0,0,0,.32),0 8px 14px -8px rgba(0,0,0,.55)}',
-'.ms-hall-wall[data-r="1"]{--tx:calc(var(--wall-w) * .72);--tz:calc(var(--wall-w) * -.62);--rot:-62deg}',
-'.ms-hall-wall[data-r="-1"]{--tx:calc(var(--wall-w) * -.72);--tz:calc(var(--wall-w) * -.62);--rot:62deg}',
-'.ms-hall[data-rest="1"] .ms-hall-wall[data-r="-1"]{opacity:0;visibility:hidden;transition:opacity .18s ease,visibility 0s .18s}',
-'.ms-hall-grid{position:absolute;inset:14px 16px 12px;display:grid;grid-template-columns:repeat(5,1fr);',
-'grid-template-rows:repeat(5,1fr);transform-style:preserve-3d;',
-'background-image:repeating-linear-gradient(180deg,transparent 0 calc(20% - 8px),rgba(255,255,255,.18) calc(20% - 8px),rgba(255,255,255,.04) calc(20% - 3px),transparent calc(20% - 3px) 20%),',
-'repeating-linear-gradient(180deg,transparent 0 calc(20% - 3px),var(--plank) calc(20% - 3px),var(--plank) 20%)}',
-'.ms-slot{position:relative;display:flex;align-items:flex-end;justify-content:center;transform-style:preserve-3d;cursor:pointer}',
-'.ms-cushion{position:absolute;left:50%;bottom:0;pointer-events:none;width:calc(var(--ms-size) * 1.35);height:calc(var(--ms-size) * 1.35);',
-'border-radius:50%;transform:translate(-50%,4%) translateZ(.8px);',
-'background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.16) 0%,rgba(255,255,255,.05) 20%,rgba(0,0,0,.22) 44%,var(--cushion-edge) 82%,rgba(0,0,0,.25) 100%);',
-'box-shadow:0 0 0 1px var(--cushion-rim),0 0 0 2px rgba(0,0,0,.28),0 0 14px 2px var(--ms-glow,transparent)}',
-'.ms-stand{position:absolute;bottom:0;left:50%;width:var(--ms-size);height:var(--ms-size);margin-left:calc(var(--ms-size) / -2);',
-'transform-origin:50% 100%;transform:translateZ(calc(var(--ms-size) * -0.18)) rotateX(-62deg);transform-style:preserve-3d}',
-'.ms-lip{position:absolute;left:50%;bottom:0;pointer-events:none;width:calc(var(--ms-size) * 1.35);height:calc(var(--ms-size) * 1.35);',
-'border-radius:50%;transform:translate(-50%,4%) translateZ(calc(var(--ms-size) * .22));',
-'background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 52%,var(--ms-cushion-lip,rgba(0,0,0,.5)) 66%,rgba(0,0,0,.18) 74%,transparent 80%);',
-'-webkit-mask:linear-gradient(180deg,#000 40%,transparent 78%);mask:linear-gradient(180deg,#000 40%,transparent 78%)}',
-'.ms-ball{display:block;width:100%;height:100%;font-size:var(--ms-size);position:relative;border:0;padding:0;border-radius:50%;cursor:pointer;',
-'background:radial-gradient(circle at var(--ms-rx) var(--ms-ry),rgba(255,255,255,.95) 0,rgba(255,255,255,.70) .028em,rgba(255,255,255,.22) .062em,rgba(255,255,255,0) .11em),',
-'radial-gradient(circle at 50% 48%,transparent 48%,var(--ms-edge) 88%,var(--ms-edge) 100%),',
-'linear-gradient(var(--ms-gangle,142deg),var(--ms-hi) 0%,var(--ms-core) 30%,var(--ms-mid) 68%,var(--ms-lo) 100%),',
-'radial-gradient(circle at 50% 122%,rgba(255,255,255,.45),rgba(255,255,255,0) 42%);',
-'box-shadow:inset 0 0 0 .020em rgba(255,255,255,.30),inset .05em .07em .14em rgba(255,255,255,.34),',
-'inset -.07em -.10em .20em -.02em var(--ms-dark),inset -.02em -.04em .07em rgba(255,255,255,.42),',
-'0 0 18px 2px var(--ms-glow),var(--ms-extra,0 0 0 0 transparent);',
-'transition:box-shadow .16s ease,filter .16s ease;-webkit-tap-highlight-color:transparent;',
-'animation:msFloat var(--ms-dur,5s) cubic-bezier(.45,0,.55,1) infinite var(--ms-delay,0s)}',
-'.ms-ball::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;filter:blur(.004em);',
-'background:conic-gradient(from calc(var(--ms-arc) - 44deg) at 50% 50%,rgba(255,255,255,0) 0deg,rgba(255,255,255,.14) 10deg,',
-'rgba(255,255,255,.92) 28deg,#fff 40deg,rgba(255,255,255,.62) 54deg,rgba(255,255,255,0) 74deg);',
-'-webkit-mask:radial-gradient(circle closest-side at 50% 50%,transparent 70%,#000 80%,#000 90%,transparent 95%);',
-'mask:radial-gradient(circle closest-side at 50% 50%,transparent 70%,#000 80%,#000 90%,transparent 95%)}',
-'.ms-ball::after{content:"";position:absolute;inset:-.045em;border-radius:50%;pointer-events:none;opacity:0;transition:opacity .25s ease;',
-'box-shadow:0 0 0 .045em rgba(255,255,255,.55),0 0 .60em .16em var(--ms-glow),inset 0 0 .50em rgba(255,255,255,.25)}',
-'.ms-ball[aria-pressed="true"]::after{opacity:1;animation:msDevelop .60s cubic-bezier(.2,.8,.2,1)}',
-'.ms-ball:hover,.ms-ball:focus-visible{transform:scale(1.06);--ms-extra:0 0 .55em .10em var(--ms-glow)}',
-'.ms-ball:focus-visible{outline:2px solid var(--focus);outline-offset:3px}',
-'.ms-ball[aria-pressed="true"]{transform:scale(1.06);filter:saturate(1.22) brightness(1.10)}',
-'.ms-empty{position:relative;display:flex;align-items:flex-end;justify-content:center}',
-'.ms-empty::before{content:"";width:calc(var(--ms-size) * 1.1);height:calc(var(--ms-size) * 1.1);border-radius:50%;',
-'background:radial-gradient(circle at 50% 36%,rgba(255,255,255,.14) 0%,rgba(255,255,255,.02) 34%,var(--empty-dark) 82%,rgba(0,0,0,.10) 100%);',
-'box-shadow:0 0 0 1px var(--empty-rim),0 0 0 2px rgba(0,0,0,.16),inset 0 3px 6px rgba(0,0,0,.28),inset 0 -3px 7px var(--empty-glow);',
-'animation:msWait 3.4s ease-in-out infinite;animation-delay:var(--ms-delay,0s)}',
-'.ms-hall-base{position:absolute;left:0;right:0;bottom:0;height:26px;pointer-events:none;',
-'background:linear-gradient(180deg,var(--base-1),var(--base-2));',
-'box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 -8px 18px -10px rgba(0,0,0,.6)}',
-'.ms-hall-base::after{content:"";position:absolute;left:4%;right:4%;top:-3px;height:3px;border-radius:2px;',
-'background:linear-gradient(90deg,transparent,var(--rim),transparent);opacity:.6}',
-'.ms-hall-light{position:absolute;inset:0;pointer-events:none;background:radial-gradient(70% 60% at 46% -8%,var(--light),transparent 70%)}',
-'.ms-hall-vignette{position:absolute;inset:0;pointer-events:none;border-radius:14px;',
-'background:radial-gradient(120% 100% at 46% 34%,transparent 40%,var(--vignette,rgba(0,0,0,.25)))}',
-'.ms-hall-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 0;font-size:.92em}',
-'.ms-hall-btn{padding:4px 10px;border-radius:999px;border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.08);',
-'color:inherit;font:inherit;cursor:pointer}',
-'.ms-hall-btn:disabled{opacity:.35;cursor:default}',
-'.ms-hall-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}',
-'.ms-hall-pos{opacity:.75}',
 '.ms-card{margin-top:10px;padding:12px 14px;border-radius:10px;background:rgba(127,127,127,.08);font-size:.95em}',
 '.ms-hint{opacity:.75;margin:6px 0 0}',
 '.ms-search{width:100%;box-sizing:border-box;padding:7px 10px;margin:0 0 12px;border-radius:8px;border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.06);color:inherit;font:inherit}',
@@ -148,14 +359,33 @@ window.__ModuleLoader__.load({
 '.ms-row:hover,.ms-row:focus-visible{border-color:rgba(63,167,255,.55);outline:none}',
 '.ms-kind{opacity:.65;margin-right:6px;font-size:.9em}',
 '.ms-muted{opacity:.65}',
-'@media (prefers-reduced-motion:reduce){.ms-hall-wall{transition:none !important}',
-'.ms-ball,.ms-ball::after,.ms-empty::before{animation:none !important;transition:none !important}}',
-].join('');
+'.ms-hall-stage{position:relative;overflow:hidden;border-radius:14px;background:radial-gradient(120% 100% at 48% 22%,#2b2118 0%,#17110c 46%,#080605 100%);box-shadow:inset 0 1px 0 rgba(150,185,255,.10)}',
+'.ms-hall-view{position:absolute;left:0;top:0;width:900px;height:620px;transform-origin:0 0}',
+'.ms-hall-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 0;font-size:.92em}',
+'.ms-hall-btn{padding:4px 10px;border-radius:999px;border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.08);color:inherit;font:inherit;cursor:pointer}',
+'.ms-hall-btn:disabled{opacity:.35;cursor:default}',
+'.ms-hall-btn:focus-visible{outline:2px solid #6ea6ff;outline-offset:2px}',
+'.ms-hall-pos{opacity:.75}',
+'.ms-rack{transition:transform .55s cubic-bezier(.22,.72,.2,1),filter .45s ease,opacity .3s ease}',
+'.ms-rack[data-rel="0"]{transform:none;filter:brightness(1) saturate(1) blur(0);z-index:3}',
+'.ms-rack[data-rel="1"]{transform:translateX(170px) translateZ(-260px);filter:brightness(.72) saturate(.9) blur(.6px);z-index:2}',
+'.ms-rack[data-rel="-1"]{transform:translateX(-170px) translateZ(-260px);filter:brightness(.55) saturate(.85) blur(1px);z-index:1;opacity:0;visibility:hidden;transition:transform .55s cubic-bezier(.22,.72,.2,1),filter .45s ease,opacity .3s ease .18s,visibility 0s .55s}',
+'.ms-rack .ms-ball{border:0;padding:0;font:inherit;appearance:none;-webkit-appearance:none;cursor:pointer}',
+'.ms-rack .ms-ball:focus-visible{outline:2px solid #6ea6ff;outline-offset:3px}',
+'.ms-rack .ms-slot{cursor:pointer}',
+'.ms-rack .ms-slot.is-empty{cursor:default;opacity:.5}',
+'.ms-rack .ms-slot.is-empty .ms-cushion{filter:brightness(.5) blur(1px)}',
+'@media (prefers-reduced-motion:reduce){.ms-rack{transition:none !important}.ms-rack .ms-ball{transition:none !important}}',
 
-    const HALL_SIZE = 25;              // 5 rows x 5 columns = one wall
+    ].join('');
+
+    const HALL_SIZE = 25;              // 5 rows x 5 columns = one rack
     const HALL_COLUMNS = 5;
     const WHEEL_STEP = 24;             // a wheel gesture must travel this far to count
-    const WHEEL_LOCK_MS = 560;         // one wall per gesture: lock while it slides
+    const WHEEL_LOCK_MS = 560;         // one rack per gesture: lock while it slides
+    const HALL_DESIGN_W = 900;         // the preview is drawn in a 900x620 space
+    const HALL_DESIGN_H = 620;
+    const HALL_VISIBLE_W = 780;        // left 780px of that space carries both racks
     // 固定 7 色 token 表：色相固定、明度高、饱和低；暗部用同色相加深，不压黑。
     const BALL_TYPES = {
       identity:  { label: '身份', hi: '#dae5f1', core: '#b1cae7', mid: '#7caade', lo: '#3573bb', glow: 'rgba(80,160,240,.35)' },
@@ -185,67 +415,33 @@ window.__ModuleLoader__.load({
       return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`;
     }
     function ballPalette(type) { return BALL_TYPES[type] || BALL_TYPES.other; }
-    function ballTier(memory, index) {
-      const weight = typeof memory.weight === 'number' && isFinite(memory.weight)
-        ? ballClamp(memory.weight, 0, 1) : null;
-      if (weight === null) return Math.min(index, 3);
-      const stamp = Date.parse(memory.recorded_at);
-      const recency = isFinite(stamp)
-        ? ballClamp(1 - (Date.now() - stamp) / 86400000 / 60, 0, 1) : 0.5;
-      const score = 0.7 * weight + 0.3 * recency;
-      if (score >= 0.72) return 0;
-      if (score >= 0.50) return 1;
-      if (score >= 0.30) return 2;
-      return 3;
-    }
     function ballDayLabel(stamp) {
       const value = Date.parse(stamp);
       if (!isFinite(value)) return '未知时间';
       const date = new Date(value);
       return `${date.getMonth() + 1}-${String(date.getDate()).padStart(2, '0')}`;
     }
-    // Sizes follow the measured wall width; weight still adds a small step so a
-    // heavy memory keeps the slightly larger ball it had on the shelf.
-    function ballVars(memory, index, row, baseSize) {
+    /** Palette only: the preview fixes every ball at 64px and one light rig. */
+    function ballStyle(memory) {
       const palette = ballPalette(memory.type);
-      const tier = ballTier(memory, index);
-      const size = Math.max(20, Math.round(baseSize * [1, 0.94, 0.88, 0.82][tier]));
-      const hashValue = ballHash(memory.id);
-      const lx = ballClamp(32 + ballOffset(hashValue, 0) / size * 100, 24, 42);
-      const ly = ballClamp(27 + ballOffset(hashValue, 4) / size * 100, 19, 36);
-      const arc = Math.atan2(lx - 50, -(ly - 50)) * 180 / Math.PI;
-      const gangle = Math.atan2(50 - lx, ly - 50) * 180 / Math.PI;
       return {
-        '--ms-size': `${size}px`,
-        '--ms-hi': ballRgba(palette.hi, .92),
-        '--ms-core': ballRgba(palette.core, .90),
-        '--ms-mid': ballRgba(palette.mid, .90),
-        '--ms-lo': ballRgba(palette.lo, .96),
-        '--ms-dark': ballRgba(palette.lo, .62),
-        '--ms-edge': ballRgba(palette.lo, .48),
-        '--ms-glow': palette.glow,
-        '--ms-rim': ballRgba(palette.mid, .30),
-        '--ms-cushion-lip': `rgba(0,0,0,${(0.50 + Math.min(4, row) * 0.05).toFixed(2)})`,
-        '--ms-gangle': `${gangle.toFixed(0)}deg`,
-        '--ms-lx': `${lx.toFixed(1)}%`,
-        '--ms-ly': `${ly.toFixed(1)}%`,
-        '--ms-rx': `${ballClamp(100 - lx, 54, 78).toFixed(1)}%`,
-        '--ms-ry': `${ballClamp(100 - ly + 8, 58, 86).toFixed(1)}%`,
-        '--ms-arc': `${arc.toFixed(0)}deg`,
-        '--ms-delay': `${(index % HALL_SIZE) * 110}ms`,
-        '--ms-dur': `${(4.9 + (hashValue % 5) * 0.1).toFixed(1)}s`,
+        '--hi': palette.hi,
+        '--core': palette.core,
+        '--mid': palette.mid,
+        '--lo': palette.lo,
+        '--dark': ballRgba(palette.lo, .62),
+        '--edge': ballRgba(palette.lo, .48),
+        '--glow': palette.glow,
       };
     }
 
-    // One wall is 25 balls; the frame is measured so the side face of the next
-    // wall still fits on the right of a narrow sidebar.
+    // The whole scene is drawn at the preview's 900x620 coordinates and scaled
+    // down as one piece, so panel width never changes the composition.
     function hallMetrics(width) {
       const stageWidth = width > 0 ? width : 340;
-      const wallWidth = Math.round(Math.min(560, Math.max(210, stageWidth - 84)));
-      const column = (wallWidth - 32) / HALL_COLUMNS;
-      const ballBase = Math.round(Math.min(44, Math.max(22, column / 1.35)));
-      const wallHeight = Math.round(ballBase * 1.35 * 5 + 34);
-      return { stageWidth, wallWidth, ballBase, wallHeight };
+      const scale = Math.max(0.3, Math.min(1, stageWidth / HALL_VISIBLE_W));
+      const stageHeight = Math.round(HALL_DESIGN_H * scale);
+      return { stageWidth, scale, stageHeight };
     }
     function hallWallCount(total) {
       return Math.max(1, Math.ceil(Math.max(0, Number(total) || 0) / HALL_SIZE));
@@ -289,6 +485,10 @@ window.__ModuleLoader__.load({
       return [width, nodeRef, measure];
     }
 
+    function ballReduced() {
+      return typeof window !== 'undefined' && window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    }
     function ballReduced() {
       return typeof window !== 'undefined' && window.matchMedia
         && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -350,7 +550,6 @@ window.__ModuleLoader__.load({
       const [stageWidth, stageNodeRef, measureStage] = useHallLayout();
       const [pages, setPages] = React.useState({});
       const [wall, setWall] = React.useState(0);
-      const [rest, setRest] = React.useState(true);
       const [pageFailed, setPageFailed] = React.useState(false);
       const mounted = React.useRef(true);
       const restRef = React.useRef(true);
@@ -367,7 +566,6 @@ window.__ModuleLoader__.load({
       const wallCount = hallWallCount(total);
       const metrics = hallMetrics(stageWidth);
       const ready = Boolean(state) && !state?.error;
-      restRef.current = rest;
       wallRef.current = wall;
       totalRef.current = total;
 
@@ -379,8 +577,8 @@ window.__ModuleLoader__.load({
         };
       }, []);
 
-      // Front wall plus the side face of the next (older) wall. Deeper walls are
-      // not fetched until the wheel brings them in; coming back hits the cache.
+      // The front rack plus the next (older) rack parked right-and-back; deeper
+      // racks are only fetched when the wheel brings them closer.
       React.useEffect(() => {
         if (!state || state.error || total <= 0) return undefined;
         const wanted = [wall];
@@ -422,7 +620,6 @@ window.__ModuleLoader__.load({
 
       const finishMove = () => {
         restRef.current = true;
-        setRest(true);
         const next = pendingRef.current;
         pendingRef.current = 0;
         if (next) stepRef.current(next);
@@ -433,19 +630,17 @@ window.__ModuleLoader__.load({
         setWall(target);
         if (ballReduced()) {
           restRef.current = true;
-          setRest(true);
           pendingRef.current = 0;
           return;
         }
         restRef.current = false;
-        setRest(false);
         if (moveTimer.current) clearTimeout(moveTimer.current);
         moveTimer.current = setTimeout(finishMove, WHEEL_LOCK_MS);
       };
       stepRef.current = step;
 
       // React attaches wheel listeners passively, so preventDefault there is a
-      // no-op: use a native non-passive listener. One gesture = one whole wall.
+      // no-op: use a native non-passive listener. One gesture = one whole rack.
       React.useEffect(() => {
         const node = stageNodeRef.current;
         if (!node || typeof node.addEventListener !== 'function') return undefined;
@@ -493,14 +688,13 @@ window.__ModuleLoader__.load({
           });
       };
 
-      const slotNode = (memory, index, row, pageItems) => {
+      const slotNode = (memory, index, pageItems) => {
         const palette = ballPalette(memory.type);
         const pressed = selectedId === memory.id;
         return h('span', {
           key: `slot-${memory.id}`,
           className: 'ms-slot',
           role: 'listitem',
-          style: ballVars(memory, index, row, metrics.ballBase),
           // Decoration layers are pointer-events:none, so a click lands here.
           // The handler lives on the slot: the ball must not toggle twice.
           onClick: () => {
@@ -513,86 +707,108 @@ window.__ModuleLoader__.load({
           },
         },
         h('span', { className: 'ms-cushion', 'aria-hidden': true }),
-        h('span', { className: 'ms-stand' },
-          h('button', {
-            type: 'button',
-            className: 'ms-ball',
-            'aria-pressed': pressed,
-            'aria-label': `${memory.text}（${palette.label} · ${ballDayLabel(memory.recorded_at)}）`,
-            title: `${memory.text} · ${palette.label} · ${ballDayLabel(memory.recorded_at)}`,
-            'data-type': memory.type,
-          })),
-        h('span', { className: 'ms-lip', 'aria-hidden': true }));
+        h('button', {
+          type: 'button',
+          className: 'ms-ball',
+          style: ballStyle(memory),
+          'aria-pressed': pressed,
+          'aria-label': `${memory.text}（${palette.label} · ${ballDayLabel(memory.recorded_at)}）`,
+          title: `${memory.text} · ${palette.label} · ${ballDayLabel(memory.recorded_at)}`,
+          'data-type': memory.type,
+        }),
+        h('span', { className: 'ms-cushion-front', 'aria-hidden': true }));
       };
 
-      const emptyNode = (key, delay) => h('span', {
+      const emptyNode = (key) => h('span', {
         key,
-        className: 'ms-empty',
+        className: 'ms-slot is-empty',
         'aria-hidden': true,
-        style: { '--ms-size': `${metrics.ballBase}px`, '--ms-delay': `${delay * 90}ms` },
-      });
+      },
+      h('span', { className: 'ms-cushion', 'aria-hidden': true }),
+      h('span', { className: 'ms-cushion-front', 'aria-hidden': true }));
 
-      const wallNode = (pageIndex, relative) => {
+      const rackNode = (pageIndex, relative) => {
         const items = pages[pageIndex] ?? null;
         const cells = hallCells(items);
-        const slots = cells.map((memory, cell) => (memory
-          ? slotNode(memory, hallIndex(pageIndex, cell), Math.floor(cell / HALL_COLUMNS), items)
-          : emptyNode(`empty-${pageIndex}-${cell}`, cell)));
+        const rows = [];
+        for (let row = 0; row < HALL_COLUMNS; row += 1) {
+          const seats = [];
+          for (let column = 0; column < HALL_COLUMNS; column += 1) {
+            const cell = row * HALL_COLUMNS + column;
+            const memory = cells[cell];
+            seats.push(memory
+              ? slotNode(memory, hallIndex(pageIndex, cell), items)
+              : emptyNode(`empty-${pageIndex}-${cell}`));
+          }
+          rows.push(h('div', { key: `row-${row}`, className: 'ms-hall-row' }, seats));
+        }
         return h('div', {
-          key: `wall-${pageIndex}`,
-          className: 'ms-hall-wall',
-          'data-r': String(relative),
+          key: `rack-${pageIndex}`,
+          className: 'ms-rack',
+          'data-rel': String(relative),
           role: 'group',
-          'aria-label': `第 ${pageIndex + 1} 面记忆墙`,
+          'aria-label': `第 ${pageIndex + 1} 面记忆架`,
           'aria-hidden': relative === -1 ? 'true' : undefined,
         },
+        h('div', { className: 'ms-hall-back', 'aria-hidden': true }),
+        [1, 2, 3, 4].map((row) => h('div', {
+          key: `shelf-${row}`,
+          className: 'ms-hall-shelf',
+          style: { '--r': row },
+          'aria-hidden': true,
+        })),
         h('div', {
-          className: 'ms-hall-grid',
+          className: 'ms-hall-rows',
           role: 'list',
           'aria-label': `第 ${pageIndex + 1} 面，共 ${items ? items.length : 0} 条`,
-        }, slots));
+        }, rows),
+        h('div', { className: 'ms-hall-post ms-hall-post-l', 'aria-hidden': true }),
+        h('div', { className: 'ms-hall-post ms-hall-post-r', 'aria-hidden': true }),
+        h('div', { className: 'ms-hall-rail ms-hall-rail-top', 'aria-hidden': true }),
+        h('div', { className: 'ms-hall-rail ms-hall-rail-bottom', 'aria-hidden': true }),
+        h('div', { className: 'ms-hall-cap', 'aria-hidden': true }));
       };
 
-      const walls = [];
-      for (const relative of [-1, 0, 1]) {
-        const pageIndex = wall + relative;
-        if (pageIndex < 0 || pageIndex >= wallCount) continue;
-        if (relative === 1 && !hallHasNext(wall, total)) continue;
-        walls.push(wallNode(pageIndex, relative));
-      }
+      const racks = [];
+      if (wall > 0 && pages[wall - 1]) racks.push(rackNode(wall - 1, -1));
+      if (hallHasNext(wall, total)) racks.push(rackNode(wall + 1, 1));
+      racks.push(rackNode(wall, 0));
 
-      const hall = h('div', {
-        className: 'ms-hall',
-        role: 'region',
-        'aria-label': '记忆走廊',
-        'data-rest': rest ? '1' : '0',
-        style: {
-          '--wall-w': `${metrics.wallWidth}px`,
-          '--wall-h': `${metrics.wallHeight}px`,
-          '--stage-h': `${metrics.wallHeight + 44}px`,
+      const hall = h('div', { className: 'ms-hall', role: 'region', 'aria-label': '记忆走廊' },
+        h('div', {
+          className: 'ms-hall-stage',
+          ref: measureStage,
+          style: { height: `${metrics.stageHeight}px` },
         },
-      },
-      h('div', { className: 'ms-hall-stage-wrap' },
-        h('div', { className: 'ms-hall-stage', ref: measureStage },
-          h('div', { className: 'ms-hall-world' }, walls),
-          h('div', { className: 'ms-hall-base', 'aria-hidden': true })),
-        h('div', { className: 'ms-hall-light', 'aria-hidden': true }),
-        h('div', { className: 'ms-hall-vignette', 'aria-hidden': true })),
-      h('div', { className: 'ms-hall-nav' },
-        h('button', {
-          type: 'button',
-          className: 'ms-hall-btn',
-          disabled: wall === 0,
-          onClick: () => step(-1),
-        }, '← 更新'),
-        h('span', { className: 'ms-hall-pos', role: 'status', 'aria-live': 'polite' },
-          `第 ${wall + 1} 面 / 共 ${wallCount} 面`),
-        h('button', {
-          type: 'button',
-          className: 'ms-hall-btn',
-          disabled: !hallHasNext(wall, total),
-          onClick: () => step(1),
-        }, '更旧 →')));
+        h('div', {
+          className: 'ms-hall-view',
+          style: { transform: `scale(${metrics.scale})` },
+        },
+        h('div', { className: 'ms-hall-scene' },
+          h('div', { className: 'ms-hall-floor', 'aria-hidden': true }),
+          h('div', { className: 'ms-hall-floor-back', 'aria-hidden': true }),
+          racks,
+          h('div', { className: 'ms-hall-shadow', 'aria-hidden': true }),
+          h('div', { className: 'ms-hall-plinth', 'aria-hidden': true }),
+          h('div', { className: 'ms-hall-plinth-back', 'aria-hidden': true }),
+          h('div', { className: 'ms-hall-seam', 'aria-hidden': true }),
+          h('div', { className: 'ms-hall-ambient', 'aria-hidden': true }),
+          h('div', { className: 'ms-hall-vignette', 'aria-hidden': true })))),
+        h('div', { className: 'ms-hall-nav' },
+          h('button', {
+            type: 'button',
+            className: 'ms-hall-btn',
+            disabled: wall === 0,
+            onClick: () => step(-1),
+          }, '← 更新'),
+          h('span', { className: 'ms-hall-pos', role: 'status', 'aria-live': 'polite' },
+            `第 ${wall + 1} 面 / 共 ${wallCount} 面`),
+          h('button', {
+            type: 'button',
+            className: 'ms-hall-btn',
+            disabled: !hallHasNext(wall, total),
+            onClick: () => step(1),
+          }, '更旧 →')));
 
       return h(
         'div',
@@ -623,7 +839,7 @@ window.__ModuleLoader__.load({
           : h('p', { className: 'ms-hint' },
             total === 0
               ? '还没有记忆。去跟模型说一句「记住：…」吧'
-              : '滚轮翻墙：往前更旧、往后更新；点亮一颗球看正文，再点一次收起。'),
+              : '滚轮换架：往前更旧、往后更新；点亮一颗球看正文，再点一次收起。'),
         !query && detail
           ? h('div', { className: 'ms-card', key: detail.id, role: 'status', 'aria-live': 'polite' },
             detail.status === 'loading'
@@ -853,7 +1069,7 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots'],
-      __test: { resolveMemory, fetchMemory, MemoryPanel, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics },
+      __test: { resolveMemory, fetchMemory, MemoryPanel, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics, ballStyle },
       apply(ctx) {
         ctx.slots.inject('main', () =>
           ctx.slots.register({ name: 'main', key: NS }, MemoryPanel),

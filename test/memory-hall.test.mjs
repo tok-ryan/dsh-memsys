@@ -206,31 +206,30 @@ test('P6/hall: the wall model keeps 25 balls per wall and index 0 newest', () =>
   assert.equal(hallIndex(2, 24), 74);
 
   const compact = hallMetrics(0);
-  assert.equal(compact.wallWidth < compact.stageWidth, true, 'the next wall side face needs room');
-  assert.ok(compact.wallWidth >= 210 && compact.wallWidth <= 560);
-  assert.ok(compact.wallHeight > 200);
+  assert.ok(compact.scale > 0.3 && compact.scale < 1, 'a narrow panel scales the preview down');
+  assert.ok(compact.stageHeight > 200 && compact.stageHeight < 620);
   const wide = hallMetrics(900);
-  assert.equal(wide.wallWidth, 560);
-  assert.equal(wide.ballBase > compact.ballBase, true, 'a wider panel gets bigger balls');
+  assert.equal(wide.scale, 1, 'a wide panel renders the confirmed preview at 1:1');
+  assert.equal(wide.stageHeight, 620);
 });
 
 test('P6/hall: the browser half is CSS-3D with a non-passive wheel and native buttons', () => {
   const { code } = loadBrowserHalf();
 
   for (const marker of [
-    'perspective:1000px',
-    'transform-style:preserve-3d',
-    'grid-template-columns:repeat(5,1fr)',
-    'grid-template-rows:repeat(5,1fr)',
-    '.ms-hall-wall[data-r="1"]',
-    'rotateY(',
-    'translate3d(',
+    'perspective: 2000px',
+    'transform-style: preserve-3d',
+    '.ms-rack[data-rel="1"]',
+    'translateX(170px)',
+    'translateZ(-260px)',
+    'brightness(.72)',
     'visibility:hidden',
     'prefers-reduced-motion',
     "{ passive: false }",
   ]) {
     assert.ok(code.includes(marker), `client.js must contain ${marker}`);
   }
+  assert.ok(code.includes('ms-hall-scene'), 'the confirmed preview scene is scoped in the panel');
   assert.ok(code.includes("'?offset=' + index * HALL_SIZE + '&limit=' + HALL_SIZE"), 'walls come from the paged summary route');
   assert.ok(code.includes('disabled: !hallHasNext(wall, total)'), 'the next-wall button reflects the boundary');
   assert.ok(code.includes('type: \'button\''), 'balls stay native buttons');
