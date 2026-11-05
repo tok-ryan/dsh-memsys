@@ -83,17 +83,23 @@ export function listDreams(dream, clock, { limit = LIMIT_DEFAULT, offset = 0 } =
  * `shelve`  = the same confirm, then due-done dropped;
  * anything else is refused with the real reason instead of a silent success.
  */
-export function applyPendingAction({ main, control, clock }, { id, action, revision }) {
-  const base = { main, control, clock };
+export function applyPendingAction(deps, { id, action, revision }) {
+  // Keep the whole deps bag: due-confirm reads deps.H for its capacity check.
+  const base = deps;
   const stamp = Date.now();
   const confirm = () => handleOwnerDueCommand(base, {
     text: `/mem due-confirm ${id} ${revision} ${duePayloadHash(id, revision)}`,
     inputEventId: `ui-confirm-${id}-${revision}-${stamp}`,
     ownerId: 'owner-ui',
   });
+  // due-confirm takes a receipt, which bumps due_queue.revision; the follow-up
+  // due-done must use the fresh revision or it fails stale_proposal.
+  const currentRevision = () => Number(
+    base.main.prepare('SELECT revision FROM due_queue WHERE memory_id = ?').get(id)?.revision ?? revision,
+  );
   const done = (how) => handleOwnerDueCommand(base, {
-    text: `/mem due-done ${id} ${revision} ${how}`,
-    inputEventId: `ui-${how}-${id}-${revision}-${stamp}`,
+    text: `/mem due-done ${id} ${currentRevision()} ${how}`,
+    inputEventId: `ui-${how}-${id}-${stamp}`,
     ownerId: 'owner-ui',
   });
 
@@ -159,7 +165,16 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
   // real handles. Resolve once per request — a thunk here was the 0.3.3 bug that
   // turned every list into read_error on the real host.
   const handle = (value) => (typeof value === 'function' ? value() : value);
-  const depsOf = () => ({ main: handle(main), control: handle(control), dream: handle(dream), clock });
+  const depsOf = () => ({
+    main: handle(main),
+    control: handle(control),
+    dream: handle(dream),
+    clock,
+    // due-confirm refuses to run without a stated H. P_LIMITS caps the due set at
+    // 12288 bytes (≈6144 tokens) and the token ratio allows 60% of H, so 12000 is
+    // the smallest round number that keeps the byte cap — not H — the binding limit.
+    H: 12000,
+  });
   const parse = (url) => {
     const raw = String(url ?? '');
     const index = raw.indexOf('?');
@@ -187,9 +202,10 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
         if (!id) { send(res, 400, { error: 'empty_id' }); return; }
         if (!action) { send(res, 400, { error: 'empty_action' }); return; }
         try {
+          const deps = depsOf();
           const result = kind === 'pending'
-            ? applyPendingAction({ main, control, clock }, { id, action, revision: Number(parsed.revision) })
-            : applyCandidateAction({ main, control, clock }, { id, action, reason: parsed.reason ?? null, baseRevision: parsed.baseRevision ?? null });
+            ? applyPendingAction(deps, { id, action, revision: Number(parsed.revision) })
+            : applyCandidateAction(deps, { id, action, reason: parsed.reason ?? null, baseRevision: parsed.baseRevision ?? null });
           const ok = result?.ok !== false && result?.status !== 'error';
           send(res, ok ? 200 : 409, { ok, kind, id, action, result });
         } catch (err) {

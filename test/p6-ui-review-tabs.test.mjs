@@ -4,6 +4,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { createReviewHandler } from '../src/runtime/review-ui.mjs';
+import { handleOwnerDueCommand } from '../src/write/due-actions.mjs';
 import { insertRow } from '../src/storage/repositories.mjs';
 import { createTestContext, makeCandidate, makeMemory, makeObservation, mutableClock } from './helpers/fixtures.mjs';
 
@@ -349,4 +350,76 @@ test('P6/UI: real host shape (thunk handles) serves all three lists from a real 
     const body = res.json();
     assert.ok(Array.isArray(body.items) && body.items.length >= 1, kind + ' should list its row');
   }
+});
+
+test('P6/UI: confirm through the thunk-shaped handler really moves the due state', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+
+  const observation = makeObservation(ctx, { text: '周五前交报告', messageSeq: 91 });
+  insertRow(ctx.main, 'observations', observation);
+  const candidate = makeCandidate(ctx, observation, { businessKey: 'due-confirm', text: '周五前交报告' });
+  insertRow(ctx.main, 'candidates', candidate);
+  const memory = makeMemory(ctx, candidate, { businessKey: 'due-confirm-mem', dueState: 'pending-due' });
+  insertRow(ctx.main, 'memories', memory);
+  const at = ctx.clock.at().at;
+  insertRow(ctx.main, 'due_queue', {
+    memory_id: memory.id, due_state: 'pending-due', enqueued_seq: 1, enqueued_at: at,
+    opened_at: null, deadline_at: null, revision: 0, reason: 'fixture',
+  });
+
+  // due-confirm requires an approved policy; approve it through the same owner channel.
+  const approved = handleOwnerDueCommand(
+    { main: ctx.main, control: ctx.control, clock: ctx.clock },
+    { text: '/mem due-policy-approve due-policy-v1', inputEventId: 'ui-policy-1', ownerId: 'owner-ui' },
+  );
+  assert.equal(approved.ok, true, 'policy approval must succeed in the fixture');
+
+  const handler = createReviewHandler({
+    main: () => ctx.main,
+    control: () => ctx.control,
+    dream: () => ctx.dream,
+    clock: ctx.clock,
+  });
+
+  const liveRevision = Number(ctx.main.prepare('SELECT revision FROM due_queue WHERE memory_id = ?').get(memory.id)?.revision ?? 0);
+  const req = fakeReq({
+    method: 'POST',
+    headers: { 'content-type': 'application/json', host: '127.0.0.1:50478' },
+    body: JSON.stringify({ kind: 'pending', id: memory.id, action: 'confirm', revision: liveRevision }),
+  });
+  const res = fakeRes();
+  handler(req, res);
+  req.flush();
+
+  assert.equal(res.statusCode, 200, JSON.stringify(res.json()));
+  const after = ctx.main.prepare('SELECT due_state FROM memories WHERE id = ?').get(memory.id);
+  assert.notEqual(after.due_state, 'pending-due', 'the memory really left pending-due');
+  assert.equal(after.due_state, 'done');
+});
+
+test('P6/UI: promote through the thunk-shaped handler really adds a memory row', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+  const candidate = seed(ctx, '主人爱吃米饭');
+  const before = Number(ctx.main.prepare('SELECT COUNT(*) AS n FROM memories').get().n);
+
+  const handler = createReviewHandler({
+    main: () => ctx.main,
+    control: () => ctx.control,
+    dream: () => ctx.dream,
+    clock: ctx.clock,
+  });
+  const req = fakeReq({
+    method: 'POST',
+    headers: { 'content-type': 'application/json', host: '127.0.0.1:50478' },
+    body: JSON.stringify({ kind: 'candidate', id: candidate.id, action: 'promote', baseRevision: candidate.payload_hash }),
+  });
+  const res = fakeRes();
+  handler(req, res);
+  req.flush();
+
+  assert.equal(res.statusCode, 200, JSON.stringify(res.json()));
+  const after = Number(ctx.main.prepare('SELECT COUNT(*) AS n FROM memories').get().n);
+  assert.equal(after, before + 1, 'a promoted candidate becomes a memory');
 });
