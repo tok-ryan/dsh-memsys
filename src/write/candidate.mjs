@@ -650,8 +650,13 @@ function assertPromotionExpansionApproved(main, candidate, runtime) {
   }
 }
 
-export function promoteCandidate(runtime, candidateId, baseRevision, deps) {
-  assertDailyRuntime(runtime);
+function promoteCandidateCore(runtime, candidateId, baseRevision, deps, { asOwner = false } = {}) {
+  if (asOwner) {
+    if (!baseRevision) throw new WriteError('validation_error', { field: 'baseRevision' });
+    runtime = { role: 'owner', identity: 'owner', sessionId: 'owner', callId: 'owner' };
+  } else {
+    assertDailyRuntime(runtime);
+  }
   const { main, control, clock } = deps;
   const candidate = getCandidate(main, candidateId);
   if (!candidate) throw new WriteError('candidate_missing', { candidateId });
@@ -662,10 +667,15 @@ export function promoteCandidate(runtime, candidateId, baseRevision, deps) {
   if (candidate.status !== 'pending') {
     throw new WriteError('candidate_not_pending', { status: candidate.status });
   }
-  if (baseRevision && baseRevision !== candidate.payload_hash) {
+  if (asOwner && baseRevision !== candidate.payload_hash) {
     throw new WriteError('stale_candidate', { baseRevision, current: candidate.payload_hash });
   }
-  assertPromotionExpansionApproved(main, candidate, runtime);
+  if (!asOwner && baseRevision && baseRevision !== candidate.payload_hash) {
+    throw new WriteError('stale_candidate', { baseRevision, current: candidate.payload_hash });
+  }
+  if (!asOwner) assertPromotionExpansionApproved(main, candidate, runtime);
+  const ownerOrigin = asOwner ? JSON.stringify([`owner@${clock.at().at}`]) : null;
+  const expectedOrigin = ownerOrigin ?? candidate.origin;
   const spec = {
     objectKey: `main:${keys.promote(candidateId)}`,
     targetDb: 'main',
@@ -682,7 +692,7 @@ export function promoteCandidate(runtime, candidateId, baseRevision, deps) {
         scene: candidate.scene,
         scope: candidate.scope,
         semantic_status: candidate.semantic_status,
-        credibility: credibilityOf(main, candidate.origin),
+        credibility: credibilityOf(main, expectedOrigin),
         due_state: candidate.due_at ? 'pending-due' : 'none',
         topic_key: candidate.topic_key ?? null,
       }),
@@ -708,6 +718,7 @@ export function promoteCandidate(runtime, candidateId, baseRevision, deps) {
             candidate,
             runtime,
             clock,
+            origin: ownerOrigin,
             hooks: deps.faultInjector?.promoteHooks ?? {},
           }),
         ),
@@ -729,6 +740,38 @@ export function promoteCandidate(runtime, candidateId, baseRevision, deps) {
     failures: receipt.consecutiveFailures,
     frozen: receipt.frozen,
   };
+}
+
+export function promoteCandidate(runtime, candidateId, baseRevision, deps) {
+  return promoteCandidateCore(runtime, candidateId, baseRevision, deps);
+}
+
+/** Owner-side promotion: skips model role/expansion gates, records owner origin. */
+export function promoteCandidateAsOwner(runtime, candidateId, baseRevision, deps) {
+  return promoteCandidateCore(runtime, candidateId, baseRevision, deps, { asOwner: true });
+}
+
+/** Owner-side rejection: no creator_session_id or daily-role restriction. */
+export function rejectCandidateAsOwner(runtime, candidateId, reason, deps) {
+  const { main, clock } = deps;
+  return withImmediate(main, () => {
+    const candidate = getCandidate(main, candidateId);
+    if (!candidate) throw new WriteError('candidate_missing', { candidateId });
+    if (candidate.status !== 'pending') throw new WriteError('candidate_not_pending', { status: candidate.status });
+    const at = clock.at().at;
+    main.prepare('UPDATE candidates SET status = ?, rejected_reason = ? WHERE id = ?').run(
+      'rejected',
+      reason ?? 'rejected_by_owner',
+      candidateId,
+    );
+    appendRelation(main, {
+      type: 'reject',
+      payload: { targetId: candidateId, reason: reason ?? 'rejected_by_owner', by: 'owner', origin: `owner@${at}`, receiptId: null },
+      businessKey: `${candidateId}:${reason ?? 'rejected_by_owner'}`,
+      at,
+    });
+    return { status: 'found', id: candidateId };
+  });
 }
 
 /** A model may only reject its own untouched pending candidate. */

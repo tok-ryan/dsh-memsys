@@ -21,9 +21,10 @@ export const PROMOTE_STEPS = Object.freeze([
   'promote-event',
 ]);
 
-function buildMemoryRow(db, candidate, runtime, clock) {
+function buildMemoryRow(db, candidate, runtime, clock, origin = null) {
   const businessKey = keys.promote(candidate.id);
   const at = clock.at().at;
+  const memoryOrigin = origin ?? candidate.origin;
   return {
     id: objectId('mem', businessKey),
     idempotency_key: businessKey,
@@ -42,8 +43,8 @@ function buildMemoryRow(db, candidate, runtime, clock) {
     structured_value: candidate.structured_value,
     semantic_status: candidate.semantic_status,
     record_kind: candidate.record_kind,
-    origin: candidate.origin,
-    credibility: credibilityOf(db, candidate.origin),
+    origin: memoryOrigin,
+    credibility: credibilityOf(db, memoryOrigin),
     lossy: candidate.lossy,
     judgment_id: candidate.judgment_id,
     key_status: candidate.key_status,
@@ -66,7 +67,7 @@ function buildMemoryRow(db, candidate, runtime, clock) {
  * memories → timeline → pointers → memory evidence → candidate status → event.
  * `hooks.beforeStep(i)` exists only as a test seam for rollback proofs.
  */
-export function promoteInTransaction(db, { candidate, runtime, clock, hooks = {} }) {
+export function promoteInTransaction(db, { candidate, runtime, clock, hooks = {}, origin = null }) {
   const businessKey = keys.promote(candidate.id);
   const existing = getMemoryByBusinessKey(db, businessKey);
   if (existing) {
@@ -80,7 +81,7 @@ export function promoteInTransaction(db, { candidate, runtime, clock, hooks = {}
   }
 
   const at = clock.at().at;
-  const memory = buildMemoryRow(db, candidate, runtime, clock);
+  const memory = buildMemoryRow(db, candidate, runtime, clock, origin);
   const memoryId = memory.id;
 
   const steps = [
@@ -137,6 +138,7 @@ export function promoteInTransaction(db, { candidate, runtime, clock, hooks = {}
           candidateId: candidate.id,
           memoryId,
           by: runtime.role,
+          candidateOrigin: candidate.origin,
           ruleRevision: '1',
         },
         businessKey: candidate.id,
