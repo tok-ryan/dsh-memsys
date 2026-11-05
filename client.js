@@ -360,6 +360,10 @@ window.__ModuleLoader__.load({
 '.ms-row:hover,.ms-row:focus-visible{border-color:rgba(63,167,255,.55);outline:none}',
 '.ms-kind{opacity:.65;margin-right:6px;font-size:.9em}',
 '.ms-muted{opacity:.65}',
+      '.ms-search{height:38px}',
+      '.ms-search-spacer{height:38px;margin:0 0 12px}',
+      '.ms-review .ms-card-text{margin:0}',
+      '.ms-review .ms-actions{margin-top:8px}',
       '.ms-tabs{display:flex;gap:6px;margin:0 0 10px;border-bottom:1px solid rgba(127,127,127,.28)}',
       '.ms-tab{padding:6px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:inherit;cursor:pointer;opacity:.7}',
       '.ms-tab[aria-selected="true"]{opacity:1;border-bottom-color:var(--focus,#4a9eff)}',
@@ -571,8 +575,16 @@ window.__ModuleLoader__.load({
       dream: '还没有梦。',
     };
 
+    const REVIEW_TABS = {
+      candidate: { title: '候选', empty: '还没有待审候选。', source: '来源：模型提取' },
+      pending: { title: '惦记', empty: '还没有惦记。', source: '来源：主人原话' },
+      dream: { title: '梦', empty: '还没有梦。', source: '来源：梦库' },
+    };
+
     function ReviewList({ kind }) {
+      const meta = REVIEW_TABS[kind] ?? REVIEW_TABS.candidate;
       const [items, setItems] = React.useState(null);
+      const [summary, setSummary] = React.useState(null);
       const [failed, setFailed] = React.useState('');
       const [busy, setBusy] = React.useState('');
       const [note, setNote] = React.useState({});
@@ -582,6 +594,11 @@ window.__ModuleLoader__.load({
           .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
           .then((data) => { setItems(Array.isArray(data?.items) ? data.items : []); setFailed(''); })
           .catch(() => { setFailed('这一页暂时读不出来'); setItems([]); });
+        // Same counts vocabulary as the memory tab; failing here must not break the list.
+        fetch(API)
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data) => setSummary(data ?? null))
+          .catch(() => setSummary(null));
       };
       React.useEffect(load, [kind]);
 
@@ -612,28 +629,45 @@ window.__ModuleLoader__.load({
           .then(() => setBusy(''));
       };
 
-      if (failed) return h('p', { className: 'ms-muted' }, failed);
-      if (items === null) return h('p', { className: 'ms-muted' }, '读取中…');
-      if (items.length === 0) return h('p', { className: 'ms-muted' }, REVIEW_EMPTY[kind] ?? '还没有内容。');
+      const shown = items ?? [];
+      const now = Date.now();
+      const countsText = kind === 'candidate'
+        ? `候选 ${summary?.candidates ?? shown.length} 条 · 待审 ${shown.length} 条`
+        : kind === 'pending'
+          ? `待确认 ${summary?.pending_due ?? shown.length} 条 · 已到期 ${shown.filter((item) => item.due_at && Date.parse(item.due_at) <= now).length} 条`
+          : `梦境 ${shown.length} 条`;
 
-      return h('div', { role: 'list', 'aria-label': kind },
-        items.map((item) => h('div', { key: item.id, className: 'ms-item', role: 'listitem' },
-          h('div', { className: 'ms-item-head' },
-            h('span', { className: 'ms-kind' }, '[' + (item.type ?? item.due_state ?? item.status ?? kind) + ']'),
-            h('span', { className: 'ms-item-meta' }, item.recorded_at ?? item.due_at ?? '')),
-          h('p', { className: 'ms-item-text' },
-            Array.from(String(item.text ?? '')).slice(0, 160).join('')),
-          kind === 'candidate'
-            ? h('div', { className: 'ms-actions' },
-              h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'promote', onClick: () => act(item, 'promote') }, '批准'),
-              h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'reject', onClick: () => act(item, 'reject') }, '驳回'))
-            : kind === 'pending'
-              ? h('div', { className: 'ms-actions' },
-                h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'confirm' || !item.revision, onClick: () => act(item, 'confirm') }, '确认已做'),
-                h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'shelve' || !item.revision, onClick: () => act(item, 'shelve') }, '搁置'))
-              : null,
-          note[item.id] ? h('p', { className: 'ms-err' }, note[item.id]) : null,
-        )));
+      const body = failed
+        ? h('p', { className: 'ms-hint' }, failed)
+        : items === null
+          ? h('p', { className: 'ms-hint' }, '读取中…')
+          : shown.length === 0
+            ? h('p', { className: 'ms-hint' }, meta.empty)
+            : h('div', { role: 'list', 'aria-label': meta.title },
+              shown.map((item) => h('div', { key: item.id, className: 'ms-card ms-item', role: 'listitem' },
+                h('p', { className: 'ms-card-text' },
+                  Array.from(String(item.text ?? '')).slice(0, 160).join('')),
+                h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
+                  [item.type ?? item.due_state ?? item.status ?? kind, item.recorded_at ?? item.due_at ?? '', meta.source]
+                    .filter(Boolean).join(' · ')),
+                kind === 'candidate'
+                  ? h('div', { className: 'ms-actions' },
+                    h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'promote', onClick: () => act(item, 'promote') }, '批准'),
+                    h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'reject', onClick: () => act(item, 'reject') }, '驳回'))
+                  : kind === 'pending'
+                    ? h('div', { className: 'ms-actions' },
+                      h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'confirm' || !item.revision, onClick: () => act(item, 'confirm') }, '确认已做'),
+                      h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'shelve' || !item.revision, onClick: () => act(item, 'shelve') }, '搁置'))
+                    : null,
+                note[item.id] ? h('p', { className: 'ms-err' }, note[item.id]) : null)));
+
+      // Same skeleton as the memory tab: h2 + ms-counts + a search-height spacer,
+      // so switching tabs only swaps content and never shifts the layout.
+      return h('div', { className: 'ms-review ms-panel' },
+        h('h2', { style: { margin: '0 0 8px' } }, meta.title),
+        h('p', { className: 'ms-counts' }, countsText),
+        h('div', { className: 'ms-search-spacer', 'aria-hidden': true }),
+        body);
     }
 
     function MemoryPanel() {

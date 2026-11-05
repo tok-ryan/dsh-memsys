@@ -252,6 +252,17 @@ test('P6/UI: the 候选 tab lists candidates, posts 批准 and shows the failure
     const list = await mounted.harness.flush(4);
     assert.ok(textOf(list).includes('主人不吃香菜'), 'the candidate text is rendered');
 
+    // Same visual skeleton as the 记忆 tab, so a future edit cannot fork the look.
+    const root = flat(list).find((node) => typeof node.props?.className === 'string' && node.props.className.includes('ms-review'));
+    assert.ok(root && root.props.className.includes('ms-panel'), 'tab body reuses the ms-panel skeleton');
+    const card = flat(list).find((node) => typeof node.props?.className === 'string' && node.props.className.includes('ms-card'));
+    assert.ok(card, 'each row is an ms-card, not a bare text row');
+    assert.ok(textOf(card).includes('主人不吃香菜'));
+    const metaLine = flat(card).find((node) => node.props?.className === 'ms-muted');
+    assert.ok(metaLine, 'the meta line uses ms-muted');
+    assert.ok(textOf(metaLine).includes('来源'), 'the meta line names the source');
+    assert.ok(textOf(list).includes('候选 1 条 · 待审 1 条'), 'the counts line speaks the memory-tab vocabulary');
+
     const approve = flat(list).find((node) => node.type === 'button' && textOf(node) === '批准');
     assert.ok(approve, 'an approve button exists');
     approve.props.onClick();
@@ -276,7 +287,9 @@ test('P6/UI: the 候选 tab renders an empty state', async () => {
   });
   try {
     const list = await mounted.harness.flush(4);
-    assert.ok(textOf(list).includes('还没有待审候选'), 'the empty state is explicit');
+    const hint = flat(list).find((node) => node.props?.className === 'ms-hint');
+    assert.ok(hint, 'the empty state uses the ms-hint line, not a big block');
+    assert.ok(textOf(hint).includes('还没有待审候选'), 'the empty state is explicit');
   } finally {
     mounted.restore();
   }
