@@ -12,9 +12,9 @@ DeepSeek Harness 的长期记忆插件。事实只追加，候选可审，判断
 - **按预算注入**：支持 full / compressed / grouped / protected_overflow 四种交付级别，快照分页可续。
 - **复习考试**：`memsys_quiz` 按 `1 / 4 / 16 / 64 / 256` 天间隔出题——复述题只给「我的理解」不给原话，辨伪题只改一处。考试只写自己的表，不碰记忆、不加 uses、不改裁决。
 - **人格版本化**：`persona/vN.md` 递增版本，注入时作为独立段落排在记忆段之前；只有主人能改，旧版本永不覆盖。
-- **检索与项目**：按关键词、场景、主题、时间检索；项目概览与版本；待确认惦记的审核分区。
+- **检索与项目**：按关键词、场景、主题、时间检索；口语问句会做同义扩展（「挥霍 token」也能捞到「花钱谨慎」），私人别名可从数据目录加载；项目概览与版本；待确认惦记的审核分区。
 - **模块开关**：context / read / write / dream / projects / due / feed 七项独立开关（复习考试跟随 `due`）。
-- **可选 Web UI**：左侧栏「记忆」面板（含 3D 玻璃球架）、设置页模块开关与人格编辑；无 Web 服务时自动降级。
+- **可选 Web UI**：左侧栏「记忆」走廊（木架 5×5 格，滚轮一格翻一面墙）、设置页模块开关与人格编辑；无 Web 服务时自动降级。
 
 ## 环境要求
 
@@ -111,15 +111,20 @@ memsys_quiz { mode: "status" }                     # 考过 N 条 / 平均分 / 
 
 安装后，Web GUI 会增加：
 
-- **左侧栏「记忆」**：记忆条数、候选条数、待确认惦记数，以及 3D 玻璃球架上的最近记忆（按记忆类型上色、按权重分层，点击展开内容）。
+- **左侧栏「记忆」走廊**：记忆条数、候选条数、待确认惦记数，以及一条**记忆走廊**——
+  一面墙 5 层 × 5 颗 = 25 条，球坐在白色丝绒垫上，按记忆类型上色；
+  滚轮一格翻一整面墙（往前=更旧、往回走缓存），点球展开正文。
+  纯 CSS 3D 实现，不引 three.js、不加构建步骤。
 - **设置 →「记忆系统」**：模块开关、当前数据目录，以及「人格」编辑块（保存为新版本、查看历史版本）。
-- **数据接口**：`/dsh-memsys/api/summary`、`/dsh-memsys/api/config`、`/dsh-memsys/api/persona`，仅接受 loopback 与同源请求。
+- **数据接口**：`/dsh-memsys/api/summary`（带 `?offset=&limit=25` 时按面分页）、`/dsh-memsys/api/config`、`/dsh-memsys/api/persona`、`/dsh-memsys/api/memory?id=`（单条正文），仅接受 loopback 与同源请求。
 
 没有 `webServer` 服务时，host 半不激活 UI 路由，浏览器半也不会加载；headless profile 不受影响。
 
 ## 数据与备份
 
 - 默认目录：`~/.dsh/memsys`（可用 `MEMSYS_DATA_DIR` 或显式 `data_dir` 覆盖）。
+- `aliases.json`（可选）：私人别名表，形如 `[{"triggers":["创作线"],"adds":["钢铁黎明","civ-evo"]}]`；
+  只从数据目录读、**不进 npm 包**，用于把口语问句映射到记忆里的写法。
 - `memsys.db`：业务事实与证据，以及 `quiz_state` / `quiz_attempts`。
 - `control.db`：操作账、编译快照、容量与恢复。
 - `dreams.db`：梦境库。
