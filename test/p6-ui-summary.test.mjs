@@ -702,3 +702,27 @@ test('P6/UI: a ball outside recent fetches its own memory, a local one does not'
   const ballBlock = code.slice(ballStart, ballStart + 700);
   assert.equal(ballBlock.includes('onClick'), false, 'the ball must not toggle a second time');
 });
+
+test('P6/UI: the memory route returns the whole body, not the 120-char summary', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+
+  const long = '鲸'.repeat(800);
+  const observation = makeObservation(ctx, { text: long });
+  insertRow(ctx.main, 'observations', observation);
+  const candidate = makeCandidate(ctx, observation, { businessKey: 'ui-long-1', text: long });
+  insertRow(ctx.main, 'candidates', candidate);
+  const memory = makeMemory(ctx, candidate, { businessKey: 'ui-long-mem' });
+  insertRow(ctx.main, 'memories', memory);
+
+  const read = createReadHandler({ main: ctx.main, control: ctx.control, clock: ctx.clock });
+  const handler = createMemoryHandler({ load: (id) => read.get({ ids: [id] }) });
+  const res = fakeRes();
+  handler(fakeReq({ url: '/dsh-memsys/api/memory?id=' + memory.id, headers: { host: '127.0.0.1:50478' } }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(Array.from(res.json().text).length, 800, 'the detail route must not truncate the body');
+
+  // The summary's recent list stays a directory: capped at 120 codepoints.
+  const summary = buildSummary(ctx.main, { dataDir: ctx.dir });
+  assert.ok(Array.from(summary.recent[0].text).length <= 120);
+});

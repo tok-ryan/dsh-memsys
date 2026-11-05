@@ -260,7 +260,9 @@ export function createMemoryHandler({ load } = {}) {
       }
       send(res, 200, {
         id: item.id,
-        text: truncate(item.text),
+        // The body is the body: only the ball/summary is capped. Truncating here
+        // made "800 chars in the client, 120 from the server" look like a UI bug.
+        text: String(item.text ?? ''),
         kind: item.type ?? null,
         created_at: item.recorded_at ?? null,
       });

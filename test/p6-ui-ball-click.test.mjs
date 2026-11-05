@@ -163,3 +163,67 @@ test('P6/UI: clicking the third ball asks for that id and shows the card above t
   globalThis.setInterval = realSetInterval;
   delete globalThis.window;
 });
+
+test('P6/UI: a long body keeps a 300-char preview and expands to the whole text', async () => {
+  const long = '鲸'.repeat(800);
+  const item = { id: 'mem_long', text: '摘要', type: 'fact', weight: 5, recorded_at: '2026-11-03T00:00:00.000Z' };
+  const calls = [];
+  const realSetInterval = globalThis.setInterval;
+  globalThis.setInterval = () => 0;
+  globalThis.clearInterval = () => {};
+
+  globalThis.fetch = (url) => {
+    const target = String(url);
+    calls.push(target);
+    const payload = target.includes('/api/memory?')
+      ? { id: 'mem_long', text: long, type: 'fact', created_at: '2026-11-03T00:00:00.000Z' }
+      : target.includes('offset=')
+        ? { items: [item], total: 1 }
+        : { memories: 1, total: 1, recent_limit: 5, candidates: 0, pending_due: 0, modules: {}, inject: { level: 'full', reason: null } };
+    return Promise.resolve({ ok: true, json: async () => payload });
+  };
+
+  const window = {
+    __ModuleLoader__: { load: (mod) => { window.__mod = mod; } },
+    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  globalThis.window = window;
+  new Function('window', CODE)(window);
+
+  const harness = createHarness();
+  const plugin = window.__mod.factory(() => harness.React);
+  harness.mount(plugin.__test.MemoryPanel);
+  const tree = await harness.flush(6);
+
+  const slots = flat(tree).filter((node) => node.props && node.props.className === 'ms-slot' && typeof node.props.onClick === 'function');
+  assert.equal(slots.length, 1, 'one clickable ball for one memory');
+  slots[0].props.onClick();
+  const opened = await harness.flush(3);
+
+  const card = flat(opened).find((node) => node.props && node.props.className === 'ms-card');
+  assert.ok(card, 'the card appears');
+  const textOf = (node) => flat(node).flatMap((entry) => (entry.children ?? []).filter((child) => typeof child === 'string')).join('');
+  const preview = textOf(card).split('鲸').length - 1;
+  assert.equal(preview, 300, 'the collapsed card shows exactly the 300-char preview');
+  assert.ok(calls.some((url) => url === '/dsh-memsys/api/memory?id=mem_long'));
+
+  const toggle = flat(card).find((node) => node.props && node.props.className === 'ms-link');
+  assert.ok(toggle, 'an expand toggle exists');
+  assert.ok(textOf(toggle).includes('展开全文'));
+  toggle.props.onClick();
+  const expanded = await harness.flush(2);
+  const cardExpanded = flat(expanded).find((node) => node.props && node.props.className === 'ms-card');
+  assert.ok(textOf(cardExpanded).split('鲸').length - 1 >= 800, 'expanding shows the whole body, no second truncation');
+  const collapse = flat(cardExpanded).find((node) => node.props && node.props.className === 'ms-link');
+  assert.ok(textOf(collapse).includes('收起'), 'the toggle flips to 收起');
+
+  collapse.props.onClick();
+  const collapsed = await harness.flush(2);
+  const cardAgain = flat(collapsed).find((node) => node.props && node.props.className === 'ms-card');
+  assert.equal(textOf(cardAgain).split('鲸').length - 1, 300, 'collapsing returns to the preview');
+
+  globalThis.setInterval = realSetInterval;
+  delete globalThis.window;
+});

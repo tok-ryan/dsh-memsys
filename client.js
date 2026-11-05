@@ -352,6 +352,7 @@ window.__ModuleLoader__.load({
 '  }',
 '.ms-panel{padding:16px;line-height:1.7}',
 '.ms-counts{margin:0 0 10px;opacity:.85}',
+'.ms-link{align-self:flex-start;margin:6px 0 0;padding:2px 8px;border-radius:6px;border:1px solid rgba(127,127,127,.4);background:transparent;color:inherit;font:inherit;cursor:pointer}',
 '.ms-card{margin-top:10px;padding:12px 14px;border-radius:10px;background:rgba(127,127,127,.08);font-size:.95em}',
 '.ms-hint{opacity:.75;margin:6px 0 0}',
 '.ms-search{width:100%;box-sizing:border-box;padding:7px 10px;margin:0 0 12px;border-radius:8px;border:1px solid rgba(127,127,127,.35);background:rgba(127,127,127,.06);color:inherit;font:inherit}',
@@ -397,7 +398,12 @@ window.__ModuleLoader__.load({
       procedure: { label: '做法', hi: '#e4daf1', core: '#c8b1e7', mid: '#a77cde', lo: '#6f35bb', glow: 'rgba(170,120,240,.35)' },
       other:     { label: '其它', hi: '#e3e5e8', core: '#c5c9d3', mid: '#9ba6bf', lo: '#626f8d', glow: 'rgba(130,160,220,.28)' },
     };
-    const CARD_TEXT_LIMIT = 120;
+    // Three tiers, deliberately separate:
+    //   ball/aria-label = 120 codepoints (a directory entry, not the text)
+    //   card preview    = 300 codepoints with an expand toggle
+    //   expanded card   = the whole text, no second truncation
+    const SUMMARY_TEXT_LIMIT = 120;
+    const CARD_PREVIEW_LIMIT = 300;
 
     function ballHash(text) {
       let hashValue = 2166136261;
@@ -526,7 +532,7 @@ window.__ModuleLoader__.load({
       return h('div', { role: 'list', 'aria-label': '搜索结果' },
         result.map((item) => {
           const open = openId === item.id;
-          const body = Array.from(String(item.text ?? '')).slice(0, CARD_TEXT_LIMIT).join('');
+          const body = Array.from(String(item.text ?? '')).slice(0, SUMMARY_TEXT_LIMIT).join('');
           return h('button', {
             key: item.id,
             type: 'button',
@@ -545,6 +551,7 @@ window.__ModuleLoader__.load({
       const [state] = useSummary();
       const [selectedId, setSelectedId] = React.useState(null);
       const [detail, setDetail] = React.useState(null);
+      const [cardExpanded, setCardExpanded] = React.useState(false);
       const [query, setQuery] = React.useState('');
       const [openResultId, setOpenResultId] = React.useState(null);
       const [stageWidth, stageNodeRef, measureStage] = useHallLayout();
@@ -666,6 +673,7 @@ window.__ModuleLoader__.load({
 
       const openMemory = (memory) => {
         setSelectedId(memory.id);
+        setCardExpanded(false);
         setDetail({ id: memory.id, status: 'loading', text: null, type: memory.type, recorded_at: memory.recorded_at });
         // Always re-read the正文 by id: the page carries a truncated copy, and a
         // silent local-only render is exactly what made "点球" look dead.
@@ -831,17 +839,34 @@ window.__ModuleLoader__.load({
           },
         }),
         !query && detail
-          ? h('div', { className: 'ms-card', key: detail.id, role: 'status', 'aria-live': 'polite' },
-            detail.status === 'loading'
-              ? '读取中…'
-              : detail.status === 'error'
-                ? '这条读不出来了'
-                : h('div', null,
-                  h('p', { style: { margin: 0 } },
-                    Array.from(String(detail.text ?? '')).slice(0, CARD_TEXT_LIMIT).join('')),
+          ? h('div', {
+            className: 'ms-card',
+            key: detail.id,
+            role: 'status',
+            'aria-live': 'polite',
+            style: { maxHeight: '42vh', overflowY: 'auto' },
+          },
+          detail.status === 'loading'
+            ? '读取中…'
+            : detail.status === 'error'
+              ? '这条读不出来了'
+              : (() => {
+                const chars = Array.from(String(detail.text ?? ''));
+                const overflow = chars.length > CARD_PREVIEW_LIMIT;
+                const shown = !overflow || cardExpanded ? chars.join('') : chars.slice(0, CARD_PREVIEW_LIMIT).join('') + '…';
+                return h('div', null,
+                  h('p', { className: 'ms-card-text', style: { margin: 0, whiteSpace: 'pre-wrap' } }, shown),
+                  overflow
+                    ? h('button', {
+                      type: 'button',
+                      className: 'ms-link',
+                      onClick: () => setCardExpanded((value) => !value),
+                    }, cardExpanded ? '收起' : `展开全文（${chars.length} 字）`)
+                    : null,
                   h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
                     `${ballPalette(detail.type).label} · ${ballDayLabel(detail.recorded_at)}`),
-                  h('p', { className: 'ms-muted', style: { margin: '6px 0 0' } }, '再次点击收起')))
+                  h('p', { className: 'ms-muted', style: { margin: '6px 0 0' } }, '再次点击收起'));
+              })())
           : null,
         query
           ? h(SearchResults, { query, openId: openResultId, onOpen: setOpenResultId })
