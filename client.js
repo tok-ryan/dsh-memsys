@@ -367,6 +367,9 @@ window.__ModuleLoader__.load({
       '.ms-search-spacer{height:38px;margin:0 0 12px}',
       '.ms-review .ms-card-text{margin:0}',
       '.ms-review .ms-actions{margin-top:8px}',
+      '.ms-slot[data-kind="candidate"] .ms-ball{opacity:.72;filter:saturate(.75);box-shadow:inset 0 0 0 2px rgba(255,255,255,.45),0 0 12px 1px var(--ms-glow)}',
+      '.ms-slot[data-kind="pending"] .ms-ball::after{opacity:.9;content:"";position:absolute;inset:auto 50% -3px;width:6px;height:6px;margin-left:-3px;border-radius:50%;background:#ffd166;box-shadow:0 0 6px 2px rgba(255,209,102,.55)}',
+      '.ms-slot[data-kind="dream"] .ms-ball{opacity:.62;filter:blur(.5px) saturate(.45) brightness(.85)}',
       '.ms-tabs{display:flex;gap:6px;margin:0 0 10px;border-bottom:1px solid rgba(127,127,127,.28)}',
       '.ms-tab{padding:6px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:inherit;cursor:pointer;opacity:.7}',
       '.ms-tab[aria-selected="true"]{opacity:1;border-bottom-color:var(--focus,#4a9eff)}',
@@ -584,95 +587,6 @@ window.__ModuleLoader__.load({
       dream: { title: '梦', empty: '还没有梦。', source: '来源：梦库' },
     };
 
-    function ReviewList({ kind }) {
-      const meta = REVIEW_TABS[kind] ?? REVIEW_TABS.candidate;
-      const [items, setItems] = React.useState(null);
-      const [summary, setSummary] = React.useState(null);
-      const [failed, setFailed] = React.useState('');
-      const [busy, setBusy] = React.useState('');
-      const [note, setNote] = React.useState({});
-
-      const load = () => {
-        fetch(REVIEW + '?kind=' + kind)
-          .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
-          .then((data) => { setItems(Array.isArray(data?.items) ? data.items : []); setFailed(''); })
-          .catch(() => { setFailed('这一页暂时读不出来'); setItems([]); });
-        // Same counts vocabulary as the memory tab; failing here must not break the list.
-        fetch(API)
-          .then((response) => (response.ok ? response.json() : null))
-          .then((data) => setSummary(data ?? null))
-          .catch(() => setSummary(null));
-      };
-      React.useEffect(load, [kind]);
-
-      const act = (item, action) => {
-        setBusy(item.id + action);
-        setNote((current) => ({ ...current, [item.id]: '' }));
-        const payload = kind === 'pending'
-          ? { kind, id: item.id, action, revision: item.revision }
-          : { kind, id: item.id, action, baseRevision: item.base_revision };
-        fetch(REVIEW, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-          .then((response) => response.json().catch(() => ({})).then((body) => ({ response, body })))
-          .then(({ response, body }) => {
-            const result = body?.result ?? {};
-            const ok = body?.ok === true && response.ok;
-            if (!ok) {
-              const reason = result.message || result.reason || result.code || body?.error || String(response.status);
-              setNote((current) => ({ ...current, [item.id]: '没成功：' + reason }));
-              return;
-            }
-            setNote((current) => ({ ...current, [item.id]: action === 'promote' ? '已批准' : '已处理' }));
-            load();
-          })
-          .catch((error) => setNote((current) => ({ ...current, [item.id]: '没成功：' + String(error?.message ?? error) })))
-          .then(() => setBusy(''));
-      };
-
-      const shown = items ?? [];
-      const now = Date.now();
-      const countsText = kind === 'candidate'
-        ? `候选 ${summary?.candidates ?? shown.length} 条 · 待审 ${shown.length} 条`
-        : kind === 'pending'
-          ? `待确认 ${summary?.pending_due ?? shown.length} 条 · 已到期 ${shown.filter((item) => item.due_at && Date.parse(item.due_at) <= now).length} 条`
-          : `梦境 ${shown.length} 条`;
-
-      const body = failed
-        ? h('p', { className: 'ms-hint' }, failed)
-        : items === null
-          ? h('p', { className: 'ms-hint' }, '读取中…')
-          : shown.length === 0
-            ? h('p', { className: 'ms-hint' }, meta.empty)
-            : h('div', { role: 'list', 'aria-label': meta.title },
-              shown.map((item) => h('div', { key: item.id, className: 'ms-card ms-item', role: 'listitem' },
-                h('p', { className: 'ms-card-text' },
-                  Array.from(String(item.text ?? '')).slice(0, 160).join('')),
-                h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
-                  [item.type ?? item.due_state ?? item.status ?? kind, item.recorded_at ?? item.due_at ?? '', meta.source]
-                    .filter(Boolean).join(' · ')),
-                kind === 'candidate'
-                  ? h('div', { className: 'ms-actions' },
-                    h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'promote', onClick: () => act(item, 'promote') }, '批准'),
-                    h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'reject', onClick: () => act(item, 'reject') }, '驳回'))
-                  : kind === 'pending'
-                    ? h('div', { className: 'ms-actions' },
-                      h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'confirm' || !item.revision, onClick: () => act(item, 'confirm') }, '确认已做'),
-                      h('button', { type: 'button', className: 'ms-link', disabled: busy === item.id + 'shelve' || !item.revision, onClick: () => act(item, 'shelve') }, '搁置'))
-                    : null,
-                note[item.id] ? h('p', { className: 'ms-err' }, note[item.id]) : null)));
-
-      // Same skeleton as the memory tab: h2 + ms-counts + a search-height spacer,
-      // so switching tabs only swaps content and never shifts the layout.
-      return h('div', { className: 'ms-review ms-panel' },
-        h('h2', { style: { margin: '0 0 8px' } }, meta.title),
-        h('p', { className: 'ms-counts' }, countsText),
-        h('div', { className: 'ms-search-spacer', 'aria-hidden': true }),
-        body);
-    }
-
     function MemoryPanel() {
       const [tab, setTab] = React.useState('memory');
       return h('div', { className: 'ms-panel' },
@@ -685,11 +599,14 @@ window.__ModuleLoader__.load({
             'aria-selected': tab === key,
             onClick: () => setTab(key),
           }, label))),
-        tab === 'memory' ? h(MemoryShelf, null) : h(ReviewList, { kind: tab }));
+        h(MemoryShelf, { tab }));
     }
 
-    function MemoryShelf() {
+    function MemoryShelf({ tab = 'memory' } = {}) {
       const [state] = useSummary();
+      const [tabItems, setTabItems] = React.useState(null);
+      const [busy, setBusy] = React.useState('');
+      const [actionNote, setActionNote] = React.useState({});
       const [selectedId, setSelectedId] = React.useState(null);
       const [detail, setDetail] = React.useState(null);
       const [cardExpanded, setCardExpanded] = React.useState(false);
@@ -710,7 +627,7 @@ window.__ModuleLoader__.load({
       const stepRef = React.useRef(null);
       const seenTotal = React.useRef(null);
 
-      const total = state?.total ?? state?.memories ?? 0;
+      const total = tab === 'memory' ? (state?.total ?? state?.memories ?? 0) : (tabItems?.length ?? 0);
       const wallCount = hallWallCount(total);
       const metrics = hallMetrics(stageWidth);
       const ready = Boolean(state) && !state?.error;
@@ -728,6 +645,7 @@ window.__ModuleLoader__.load({
       // The front rack plus the next (older) rack parked right-and-back; deeper
       // racks are only fetched when the wheel brings them closer.
       React.useEffect(() => {
+        if (tab !== 'memory') return undefined;
         if (!state || state.error || total <= 0) return undefined;
         const wanted = [wall];
         if (hallHasNext(wall, total)) wanted.push(wall + 1);
@@ -752,6 +670,24 @@ window.__ModuleLoader__.load({
         }
         return undefined;
       }, [state, wall, total, pages]);
+
+      // Switching a tab only changes which balls the same shelf holds.
+      React.useEffect(() => {
+        setSelectedId(null);
+        setDetail(null);
+        setCardExpanded(false);
+        setPages({});
+        setWall(0);
+        setActionNote({});
+        setTabItems(null);
+        if (tab === 'memory') return undefined;
+        let alive = true;
+        fetch(REVIEW + '?kind=' + tab)
+          .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+          .then((data) => { if (alive) setTabItems(Array.isArray(data?.items) ? data.items : []); })
+          .catch(() => { if (alive) setTabItems([]); });
+        return () => { alive = false; };
+      }, [tab]);
 
       // A new memory shifts every offset, so drop the page cache once total moves.
       React.useEffect(() => {
@@ -815,6 +751,18 @@ window.__ModuleLoader__.load({
       const openMemory = (memory) => {
         setSelectedId(memory.id);
         setCardExpanded(false);
+        if (tab !== 'memory') {
+          setDetail({
+            id: memory.id,
+            status: 'ok',
+            text: memory.text,
+            type: memory.type,
+            recorded_at: memory.recorded_at ?? memory.due_at ?? null,
+            kind: tab,
+            row: memory,
+          });
+          return;
+        }
         setDetail({ id: memory.id, status: 'loading', text: null, type: memory.type, recorded_at: memory.recorded_at });
         // Always re-read the正文 by id: the page carries a truncated copy, and a
         // silent local-only render is exactly what made "点球" look dead.
@@ -839,12 +787,44 @@ window.__ModuleLoader__.load({
           });
       };
 
+      const act = (row, action) => {
+        setBusy(row.id + action);
+        setActionNote((current) => ({ ...current, [row.id]: '' }));
+        const payload = tab === 'pending'
+          ? { kind: tab, id: row.id, action, revision: row.revision }
+          : { kind: tab, id: row.id, action, baseRevision: row.base_revision };
+        fetch(REVIEW, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then((response) => response.json().catch(() => ({})).then((body) => ({ response, body })))
+          .then(({ response, body }) => {
+            const result = body?.result ?? {};
+            if (!(body?.ok === true && response.ok)) {
+              const reason = result.message || result.reason || result.code || body?.error || String(response.status);
+              setActionNote((current) => ({ ...current, [row.id]: '没成功：' + reason }));
+              return;
+            }
+            setSelectedId(null);
+            setDetail(null);
+            const reload = () => fetch(REVIEW + '?kind=' + tab)
+              .then((response) => (response.ok ? response.json() : null))
+              .then((data) => setTabItems(Array.isArray(data?.items) ? data.items : []))
+              .catch(() => {});
+            reload();
+          })
+          .catch((error) => setActionNote((current) => ({ ...current, [row.id]: '没成功：' + String(error?.message ?? error) })))
+          .then(() => setBusy(''));
+      };
+
       const slotNode = (memory, index, pageItems) => {
         const palette = ballPalette(memory.type);
         const pressed = selectedId === memory.id;
         return h('span', {
           key: `slot-${memory.id}`,
           className: 'ms-slot',
+          'data-kind': tab,
           role: 'listitem',
           // Decoration layers are pointer-events:none, so a click lands here.
           // The handler lives on the slot: the ball must not toggle twice.
@@ -879,7 +859,7 @@ window.__ModuleLoader__.load({
       h('span', { className: 'ms-cushion-front', 'aria-hidden': true }));
 
       const rackNode = (pageIndex, relative) => {
-        const items = pages[pageIndex] ?? null;
+        const items = tab === 'memory' ? (pages[pageIndex] ?? null) : (pageIndex === 0 ? tabItems : null);
         const cells = hallCells(items);
         const rows = [];
         for (let row = 0; row < HALL_COLUMNS; row += 1) {
@@ -921,7 +901,7 @@ window.__ModuleLoader__.load({
       };
 
       const racks = [];
-      if (wall > 0 && pages[wall - 1]) racks.push(rackNode(wall - 1, -1));
+      if (wall > 0 && (tab === 'memory' ? pages[wall - 1] : null)) racks.push(rackNode(wall - 1, -1));
       if (hallHasNext(wall, total)) racks.push(rackNode(wall + 1, 1));
       racks.push(rackNode(wall, 0));
 
@@ -965,21 +945,50 @@ window.__ModuleLoader__.load({
         'div',
         { className: 'ms-panel' },
         h('style', { dangerouslySetInnerHTML: { __html: BALL_CSS } }),
-        h('h2', { style: { margin: '0 0 8px' } }, '记忆'),
-        h('p', { className: 'ms-counts' },
-          `记忆 ${total} 条 · 每面 ${HALL_SIZE} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`),
-        h('input', {
-          className: 'ms-search',
-          type: 'search',
-          value: query,
-          placeholder: '搜记忆…',
-          'aria-label': '搜记忆',
-          onChange: (event) => setQuery(event.target.value),
-          onKeyDown: (event) => {
-            if (event.key === 'Enter') setQuery(event.currentTarget.value);
+        h('h2', { style: { margin: '0 0 8px' } }, tab === 'memory' ? '记忆' : REVIEW_TABS[tab]?.title ?? '记忆'),
+        h('p', { className: 'ms-counts' }, tab === 'memory'
+          ? `记忆 ${total} 条 · 每面 ${HALL_SIZE} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`
+          : tab === 'candidate'
+            ? `候选 ${state.candidates ?? total} 条 · 待审 ${total} 条`
+            : tab === 'pending'
+              ? `待确认 ${state.pending_due ?? total} 条 · 已到期 ${(tabItems ?? []).filter((item) => item.due_at && Date.parse(item.due_at) <= Date.now()).length} 条`
+              : `梦境 ${total} 条`),
+        tab === 'memory'
+          ? h('input', {
+            className: 'ms-search',
+            type: 'search',
+            value: query,
+            placeholder: '搜记忆…',
+            'aria-label': '搜记忆',
+            onChange: (event) => setQuery(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key === 'Enter') setQuery(event.currentTarget.value);
+            },
+          })
+          : h('div', { className: 'ms-search-spacer', 'aria-hidden': true }),
+        !query && detail && detail.kind && detail.kind !== 'memory'
+          ? h('div', {
+            className: 'ms-card',
+            key: detail.id,
+            role: 'status',
+            style: { maxHeight: '42vh', overflowY: 'auto' },
           },
-        }),
-        !query && detail
+          h('p', { className: 'ms-card-text', style: { margin: 0, whiteSpace: 'pre-wrap' } }, String(detail.text ?? '')),
+          h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
+            [REVIEW_TABS[detail.kind]?.title, ballDayLabel(detail.recorded_at)].filter(Boolean).join(' · ')),
+          detail.kind === 'candidate'
+            ? h('div', { className: 'ms-actions' },
+              h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'promote', onClick: () => act(detail.row, 'promote') }, '批准'),
+              h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'reject', onClick: () => act(detail.row, 'reject') }, '驳回'))
+            : detail.kind === 'pending'
+              ? h('div', { className: 'ms-actions' },
+                h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'confirm' || !detail.row.revision, onClick: () => act(detail.row, 'confirm') }, '确认已做'),
+                h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'shelve' || !detail.row.revision, onClick: () => act(detail.row, 'shelve') }, '搁置'))
+              : null,
+          actionNote[detail.id] ? h('p', { className: 'ms-err' }, actionNote[detail.id]) : null,
+          h('p', { className: 'ms-muted', style: { margin: '6px 0 0' } }, '再次点击收起'))
+          : null,
+        !query && detail && !detail.kind
           ? h('div', {
             className: 'ms-card',
             key: detail.id,
@@ -1019,8 +1028,8 @@ window.__ModuleLoader__.load({
           ? null
           : h('p', { className: 'ms-hint' },
             total === 0
-              ? '还没有记忆。去跟模型说一句「记住：…」吧'
-              : '滚轮换架：往前更旧、往后更新；点亮一颗球看正文，再点一次收起。'),
+              ? (tab === 'memory' ? '还没有记忆。去跟模型说一句「记住：…」吧' : '这一格里还没有东西')
+              : '点亮一颗球看内容，再点一次收起。'),
       );
     }
 
@@ -1238,7 +1247,7 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots'],
-      __test: { ReviewList, resolveMemory, fetchMemory, MemoryPanel, MemoryShell: MemoryPanel, MemoryShelf, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics, ballStyle },
+      __test: { resolveMemory, fetchMemory, MemoryPanel, MemoryShell: MemoryPanel, MemoryShelf, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics, ballStyle },
       apply(ctx) {
         ctx.slots.inject('main', () =>
           ctx.slots.register({ name: 'main', key: NS }, MemoryPanel),
