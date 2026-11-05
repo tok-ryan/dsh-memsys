@@ -664,10 +664,12 @@ window.__ModuleLoader__.load({
       if (!state) return h('p', { className: 'ms-panel' }, '读取记忆…');
       if (state.error) return h('p', { className: 'ms-panel' }, '暂时读不到记忆数据。');
 
-      const openMemory = (memory, pageItems) => {
+      const openMemory = (memory) => {
         setSelectedId(memory.id);
         setDetail({ id: memory.id, status: 'loading', text: null, type: memory.type, recorded_at: memory.recorded_at });
-        resolveMemory(memory.id, pageItems, fetchMemory)
+        // Always re-read the正文 by id: the page carries a truncated copy, and a
+        // silent local-only render is exactly what made "点球" look dead.
+        fetchMemory(memory.id)
           .then((item) => {
             if (!mounted.current) return;
             setDetail((current) => (current && current.id === memory.id
@@ -703,7 +705,7 @@ window.__ModuleLoader__.load({
               setDetail(null);
               return;
             }
-            openMemory(memory, pageItems);
+            openMemory(memory);
           },
         },
         h('span', { className: 'ms-cushion', 'aria-hidden': true }),
@@ -828,6 +830,19 @@ window.__ModuleLoader__.load({
             if (event.key === 'Enter') setQuery(event.currentTarget.value);
           },
         }),
+        !query && detail
+          ? h('div', { className: 'ms-card', key: detail.id, role: 'status', 'aria-live': 'polite' },
+            detail.status === 'loading'
+              ? '读取中…'
+              : detail.status === 'error'
+                ? '这条读不出来了'
+                : h('div', null,
+                  h('p', { style: { margin: 0 } },
+                    Array.from(String(detail.text ?? '')).slice(0, CARD_TEXT_LIMIT).join('')),
+                  h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
+                    `${ballPalette(detail.type).label} · ${ballDayLabel(detail.recorded_at)}`),
+                  h('p', { className: 'ms-muted', style: { margin: '6px 0 0' } }, '再次点击收起')))
+          : null,
         query
           ? h(SearchResults, { query, openId: openResultId, onOpen: setOpenResultId })
           : hall,
@@ -840,18 +855,6 @@ window.__ModuleLoader__.load({
             total === 0
               ? '还没有记忆。去跟模型说一句「记住：…」吧'
               : '滚轮换架：往前更旧、往后更新；点亮一颗球看正文，再点一次收起。'),
-        !query && detail
-          ? h('div', { className: 'ms-card', key: detail.id, role: 'status', 'aria-live': 'polite' },
-            detail.status === 'loading'
-              ? '读取中…'
-              : detail.status === 'error'
-                ? '这条读不出来了'
-                : h('div', null,
-                  h('p', { style: { margin: 0 } },
-                    Array.from(String(detail.text ?? '')).slice(0, CARD_TEXT_LIMIT).join('')),
-                  h('p', { className: 'ms-muted', style: { margin: '4px 0 0' } },
-                    `${ballPalette(detail.type).label} · ${ballDayLabel(detail.recorded_at)}`)))
-          : null,
       );
     }
 
