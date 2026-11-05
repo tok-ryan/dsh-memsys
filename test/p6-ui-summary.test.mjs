@@ -406,6 +406,7 @@ test('P6/UI: with webServer the two exact routes serve loopback and reject cross
         ['exact', '/dsh-memsys/api/config'],
         ['exact', '/dsh-memsys/api/search'],
         ['exact', '/dsh-memsys/api/memory'],
+        ['exact', '/dsh-memsys/api/review'],
         ['exact', '/dsh-memsys/api/persona'],
       ],
     );

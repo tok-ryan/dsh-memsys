@@ -360,6 +360,17 @@ window.__ModuleLoader__.load({
 '.ms-row:hover,.ms-row:focus-visible{border-color:rgba(63,167,255,.55);outline:none}',
 '.ms-kind{opacity:.65;margin-right:6px;font-size:.9em}',
 '.ms-muted{opacity:.65}',
+      '.ms-tabs{display:flex;gap:6px;margin:0 0 10px;border-bottom:1px solid rgba(127,127,127,.28)}',
+      '.ms-tab{padding:6px 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:inherit;font:inherit;cursor:pointer;opacity:.7}',
+      '.ms-tab[aria-selected="true"]{opacity:1;border-bottom-color:var(--focus,#4a9eff)}',
+      '.ms-item{padding:10px 12px;margin:0 0 8px;border-radius:10px;background:rgba(127,127,127,.07)}',
+      '.ms-item-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}',
+      '.ms-item-text{margin:4px 0 0;white-space:pre-wrap}',
+      '.ms-item-meta{opacity:.65;font-size:.88em}',
+      '.ms-actions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}',
+      '.ms-btn{padding:5px 12px;border-radius:8px;border:1px solid rgba(127,127,127,.45);background:rgba(127,127,127,.10);color:inherit;font:inherit;cursor:pointer}',
+      '.ms-btn:disabled{opacity:.5;cursor:not-allowed}',
+      '.ms-err{color:#c43d3d;margin:6px 0 0}',
 '.ms-hall-stage{position:relative;overflow:hidden;border-radius:14px;background:radial-gradient(120% 100% at 48% 22%,#2b2118 0%,#17110c 46%,#080605 100%);box-shadow:inset 0 1px 0 rgba(150,185,255,.10)}',
 '.ms-hall-view{position:absolute;left:0;top:0;width:900px;height:620px;transform-origin:0 0}',
 '.ms-hall-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 2px 0;font-size:.92em}',
@@ -547,7 +558,100 @@ window.__ModuleLoader__.load({
         }));
     }
 
+    const TABS = [
+      { key: 'memory', label: '记忆' },
+      { key: 'candidate', label: '候选' },
+      { key: 'pending', label: '惦记' },
+      { key: 'dream', label: '梦' },
+    ];
+    const REVIEW = '/dsh-memsys/api/review';
+    const REVIEW_EMPTY = {
+      candidate: '还没有待审候选。',
+      pending: '还没有惦记。',
+      dream: '还没有梦。',
+    };
+
+    function ReviewList({ kind }) {
+      const [items, setItems] = React.useState(null);
+      const [failed, setFailed] = React.useState('');
+      const [busy, setBusy] = React.useState('');
+      const [note, setNote] = React.useState({});
+
+      const load = () => {
+        fetch(REVIEW + '?kind=' + kind)
+          .then((response) => (response.ok ? response.json() : Promise.reject(new Error(String(response.status)))))
+          .then((data) => { setItems(Array.isArray(data?.items) ? data.items : []); setFailed(''); })
+          .catch(() => { setFailed('这一页暂时读不出来'); setItems([]); });
+      };
+      React.useEffect(load, [kind]);
+
+      const act = (item, action) => {
+        setBusy(item.id + action);
+        setNote((current) => ({ ...current, [item.id]: '' }));
+        const payload = kind === 'pending'
+          ? { kind, id: item.id, action, revision: item.revision }
+          : { kind, id: item.id, action, baseRevision: item.base_revision };
+        fetch(REVIEW, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+          .then((response) => response.json().catch(() => ({})).then((body) => ({ response, body })))
+          .then(({ response, body }) => {
+            const result = body?.result ?? {};
+            const ok = body?.ok === true && response.ok;
+            if (!ok) {
+              const reason = result.message || result.reason || result.code || body?.error || String(response.status);
+              setNote((current) => ({ ...current, [item.id]: '没成功：' + reason }));
+              return;
+            }
+            setNote((current) => ({ ...current, [item.id]: action === 'promote' ? '已批准' : '已处理' }));
+            load();
+          })
+          .catch((error) => setNote((current) => ({ ...current, [item.id]: '没成功：' + String(error?.message ?? error) })))
+          .then(() => setBusy(''));
+      };
+
+      if (failed) return h('p', { className: 'ms-muted' }, failed);
+      if (items === null) return h('p', { className: 'ms-muted' }, '读取中…');
+      if (items.length === 0) return h('p', { className: 'ms-muted' }, REVIEW_EMPTY[kind] ?? '还没有内容。');
+
+      return h('div', { role: 'list', 'aria-label': kind },
+        items.map((item) => h('div', { key: item.id, className: 'ms-item', role: 'listitem' },
+          h('div', { className: 'ms-item-head' },
+            h('span', { className: 'ms-kind' }, '[' + (item.type ?? item.due_state ?? item.status ?? kind) + ']'),
+            h('span', { className: 'ms-item-meta' }, item.recorded_at ?? item.due_at ?? '')),
+          h('p', { className: 'ms-item-text' },
+            Array.from(String(item.text ?? '')).slice(0, 160).join('')),
+          kind === 'candidate'
+            ? h('div', { className: 'ms-actions' },
+              h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'promote', onClick: () => act(item, 'promote') }, '批准'),
+              h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'reject', onClick: () => act(item, 'reject') }, '驳回'))
+            : kind === 'pending'
+              ? h('div', { className: 'ms-actions' },
+                h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'confirm' || !item.revision, onClick: () => act(item, 'confirm') }, '确认已做'),
+                h('button', { type: 'button', className: 'ms-btn', disabled: busy === item.id + 'shelve' || !item.revision, onClick: () => act(item, 'shelve') }, '搁置'))
+              : null,
+          note[item.id] ? h('p', { className: 'ms-err' }, note[item.id]) : null,
+        )));
+    }
+
     function MemoryPanel() {
+      const [tab, setTab] = React.useState('memory');
+      return h('div', { className: 'ms-panel' },
+        h('div', { className: 'ms-tabs', role: 'tablist' },
+          TABS.map(({ key, label }) => h('button', {
+            key,
+            type: 'button',
+            role: 'tab',
+            className: 'ms-tab',
+            'aria-selected': tab === key,
+            onClick: () => setTab(key),
+          }, label))),
+        tab === 'memory' ? h(MemoryShelf, null) : h(ReviewList, { kind: tab }));
+    }
+
+    function MemoryShelf() {
       const [state] = useSummary();
       const [selectedId, setSelectedId] = React.useState(null);
       const [detail, setDetail] = React.useState(null);
@@ -1097,7 +1201,7 @@ window.__ModuleLoader__.load({
 
     return {
       inject: ['slots'],
-      __test: { resolveMemory, fetchMemory, MemoryPanel, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics, ballStyle },
+      __test: { ReviewList, resolveMemory, fetchMemory, MemoryPanel, MemoryShell: MemoryPanel, MemoryShelf, hallWallCount, hallHasNext, hallCells, hallIndex, hallMetrics, ballStyle },
       apply(ctx) {
         ctx.slots.inject('main', () =>
           ctx.slots.register({ name: 'main', key: NS }, MemoryPanel),

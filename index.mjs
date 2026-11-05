@@ -21,6 +21,7 @@ import { createRecordHandler } from './src/tools/record.mjs';
 import { createQuizHandler } from './src/tools/quiz.mjs';
 import { runtimeFromExec } from './src/runtime/identity.mjs';
 import { createMemoryHandler, createSearchHandler, createSummaryHandler } from './src/runtime/summary.mjs';
+import { createReviewHandler } from './src/runtime/review-ui.mjs';
 import { mergeModules, resolveModulesDetail, writeUiConfig } from './src/runtime/ui-config.mjs';
 import { createRoundInjector } from './src/runtime/inject-round.mjs';
 import { loadAliases, setAliasProvider } from './src/read/expand.mjs';
@@ -107,6 +108,7 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
   const uiSearch = createSearchHandler({ main: () => db().main, clock: systemClock });
   // One memory by id, through the same read handler the memsys_get tool uses.
   const uiMemory = createMemoryHandler({ load: (id) => read().get({ ids: [id] }) });
+  const uiReview = createReviewHandler({ main: () => db().main, control: () => db().control, dream: () => db().dream, clock: systemClock });
   const uiSummary = createSummaryHandler({
     main: () => db().main,
     dataDir,
@@ -165,6 +167,7 @@ function createHostHandlers(config = {}, ctx = null, ui = null) {
     memsys_ui_summary: (req, res) => uiSummary(req, res),
     memsys_ui_search: (req, res) => uiSearch(req, res),
     memsys_ui_memory: (req, res) => uiMemory(req, res),
+    memsys_ui_review: (req, res) => uiReview(req, res),
     // Cross-plugin surface: `ctx.provide('memsys', …)` exposes this instance.
     memsys_service: () => createMemSysService({ main: db().main, control: db().control, clock: systemClock }),
     memsys_record: (args, exec) => {
@@ -450,6 +453,15 @@ export async function apply(ctx, config = {}) {
               handler: (req, res) => handlers.memsys_ui_memory(req, res),
             }),
           'memsys: ui memory route',
+        );
+        web.effect(
+          () =>
+            web.webServer.register({
+              kind: 'exact',
+              path: '/dsh-memsys/api/review',
+              handler: (req, res) => handlers.memsys_ui_review(req, res),
+            }),
+          'memsys: ui review route',
         );
         web.effect(
           () =>

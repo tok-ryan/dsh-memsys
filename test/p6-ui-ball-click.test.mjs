@@ -131,7 +131,7 @@ test('P6/UI: clicking the third ball asks for that id and shows the card above t
 
   const harness = createHarness();
   const plugin = window.__mod.factory(() => harness.React);
-  harness.mount(plugin.__test.MemoryPanel);
+  harness.mount(plugin.__test.MemoryShelf);
   const tree = await harness.flush(6);
 
   const classes = flat(tree).map((node) => node.props && node.props.className).filter(Boolean);
@@ -194,7 +194,7 @@ test('P6/UI: a long body keeps a 300-char preview and expands to the whole text'
 
   const harness = createHarness();
   const plugin = window.__mod.factory(() => harness.React);
-  harness.mount(plugin.__test.MemoryPanel);
+  harness.mount(plugin.__test.MemoryShelf);
   const tree = await harness.flush(6);
 
   const slots = flat(tree).filter((node) => node.props && node.props.className === 'ms-slot' && typeof node.props.onClick === 'function');
