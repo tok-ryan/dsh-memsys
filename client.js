@@ -988,8 +988,8 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'reject', onClick: () => act(detail.row, 'reject') }, '驳回'))
             : detail.kind === 'pending'
               ? h('div', { className: 'ms-actions' },
-                h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'confirm' || !detail.row.revision, onClick: () => act(detail.row, 'confirm') }, '确认已做'),
-                h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'shelve' || !detail.row.revision, onClick: () => act(detail.row, 'shelve') }, '搁置'))
+                h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'confirm' || detail.row.revision == null, onClick: () => act(detail.row, 'confirm') }, '确认已做'),
+                h('button', { type: 'button', className: 'ms-link', disabled: busy === detail.id + 'shelve' || detail.row.revision == null, onClick: () => act(detail.row, 'shelve') }, '搁置'))
               : null,
           actionNote[detail.id] ? h('p', { className: 'ms-err' }, actionNote[detail.id]) : null,
           h('p', { className: 'ms-muted', style: { margin: '6px 0 0' } }, '再次点击收起'))
