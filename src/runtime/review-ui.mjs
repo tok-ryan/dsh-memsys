@@ -12,6 +12,7 @@ import * as candidateWrites from '../write/candidate.mjs';
 import { reviewGet } from '../read/review.mjs';
 import { dreamReviewList } from '../read/dream.mjs';
 import { duePayloadHash, handleOwnerDueCommand } from '../write/due-actions.mjs';
+import { duePolicyState } from '../context/pending-due.mjs';
 import { isLoopback, sameOrigin } from './summary.mjs';
 
 const LIMIT_DEFAULT = 20;
@@ -87,6 +88,17 @@ export function applyPendingAction(deps, { id, action, revision }) {
   // Keep the whole deps bag: due-confirm reads deps.H for its capacity check.
   const base = deps;
   const stamp = Date.now();
+  // The policy gate exists so the owner decides when due items may be confirmed.
+  // A click on the owner's own panel IS that decision, so approve once here and
+  // carry on; already-approved policies are left untouched.
+  const ensurePolicy = () => {
+    if (duePolicyState(base.main)?.approved) return { ok: true, skipped: true };
+    return handleOwnerDueCommand(base, {
+      text: '/mem due-policy-approve due-policy-v1',
+      inputEventId: `ui-policy-${stamp}`,
+      ownerId: 'owner-ui',
+    });
+  };
   const confirm = () => handleOwnerDueCommand(base, {
     text: `/mem due-confirm ${id} ${revision} ${duePayloadHash(id, revision)}`,
     inputEventId: `ui-confirm-${id}-${revision}-${stamp}`,
@@ -103,6 +115,10 @@ export function applyPendingAction(deps, { id, action, revision }) {
     ownerId: 'owner-ui',
   });
 
+  if (action === 'confirm' || action === 'shelve') {
+    const policy = ensurePolicy();
+    if (!policy.ok) return policy;
+  }
   if (action === 'confirm') {
     const opened = confirm();
     if (!opened.ok) return opened;

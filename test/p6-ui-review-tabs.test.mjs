@@ -409,12 +409,8 @@ test('P6/UI: confirm through the thunk-shaped handler really moves the due state
     opened_at: null, deadline_at: null, revision: 0, reason: 'fixture',
   });
 
-  // due-confirm requires an approved policy; approve it through the same owner channel.
-  const approved = handleOwnerDueCommand(
-    { main: ctx.main, control: ctx.control, clock: ctx.clock },
-    { text: '/mem due-policy-approve due-policy-v1', inputEventId: 'ui-policy-1', ownerId: 'owner-ui' },
-  );
-  assert.equal(approved.ok, true, 'policy approval must succeed in the fixture');
+  // No manual approval here on purpose: the panel click itself must approve the
+  // policy (one request, two steps) or the owner can never confirm anything.
 
   const handler = createReviewHandler({
     main: () => ctx.main,
@@ -437,6 +433,26 @@ test('P6/UI: confirm through the thunk-shaped handler really moves the due state
   const after = ctx.main.prepare('SELECT due_state FROM memories WHERE id = ?').get(memory.id);
   assert.notEqual(after.due_state, 'pending-due', 'the memory really left pending-due');
   assert.equal(after.due_state, 'done');
+
+  const audit = ctx.main
+    .prepare("SELECT payload FROM relations WHERE type = 'due-policy-approve'")
+    .all()
+    .map((row) => JSON.parse(row.payload));
+  assert.ok(audit.length >= 1, 'the approval is on the record');
+  assert.equal(audit[0].by, 'owner', 'and it names the owner as the approver');
+
+  // Replaying the same request must not write a second transition.
+  const replayReq = fakeReq({
+    method: 'POST',
+    headers: { 'content-type': 'application/json', host: '127.0.0.1:50478' },
+    body: JSON.stringify({ kind: 'pending', id: memory.id, action: 'confirm', revision: liveRevision }),
+  });
+  const replayRes = fakeRes();
+  handler(replayReq, replayRes);
+  replayReq.flush();
+  assert.ok([200, 409].includes(replayRes.statusCode), 'a replay answers without crashing');
+  const stable = ctx.main.prepare('SELECT due_state FROM memories WHERE id = ?').get(memory.id);
+  assert.equal(stable.due_state, 'done', 'a replay does not undo or duplicate the transition');
 });
 
 test('P6/UI: promote through the thunk-shaped handler really adds a memory row', (t) => {

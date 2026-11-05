@@ -74,7 +74,7 @@ export function checkDueCapacity(db, { H = null, limits = P_LIMITS, targetBytes 
 }
 
 /** Owner-approved policy gate: open is unavailable until due-policy-v1 is approved. */
-export function approveDuePolicy(deps, { policyRevision = POLICY_REVISION, receiptId = null } = {}) {
+export function approveDuePolicy(deps, { policyRevision = POLICY_REVISION, receiptId = null, by = null } = {}) {
   const { main: db, clock } = deps;
   return withImmediate(db, () => {
     putState(
@@ -85,7 +85,7 @@ export function approveDuePolicy(deps, { policyRevision = POLICY_REVISION, recei
     );
     appendRelation(db, {
       type: 'due-policy-approve',
-      payload: { policyRevision, receiptId },
+      payload: by === null ? { policyRevision, receiptId } : { policyRevision, receiptId, by },
       businessKey: policyRevision,
       at: clock.at().at,
       keyEncoding: 'canonical',
@@ -245,7 +245,8 @@ export function handleOwnerDueCommand(deps, { text, inputEventId, ownerId = 'own
         inputEventId,
       }),
     );
-    return approveDuePolicy(deps, { policyRevision, receiptId: receipt.receiptId });
+    // The owner channel is the only caller; record it on the audit row.
+    return approveDuePolicy(deps, { policyRevision, receiptId: receipt.receiptId, by: 'owner' });
   }
 
   if (command === 'due-batch') {

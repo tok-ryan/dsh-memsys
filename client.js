@@ -802,7 +802,13 @@ window.__ModuleLoader__.load({
           .then(({ response, body }) => {
             const result = body?.result ?? {};
             if (!(body?.ok === true && response.ok)) {
-              const reason = result.message || result.reason || result.code || body?.error || String(response.status);
+              // Never swallow a 409: show the server's code and sentence verbatim.
+              const reason = [
+                result.code,
+                result.reason && result.reason !== result.code ? result.reason : null,
+                result.message,
+                body?.error,
+              ].filter(Boolean).join(' · ') || ('HTTP ' + response.status);
               setActionNote((current) => ({ ...current, [row.id]: '没成功：' + reason }));
               return;
             }
