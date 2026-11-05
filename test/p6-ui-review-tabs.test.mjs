@@ -5,7 +5,7 @@ import test from 'node:test';
 
 import { createReviewHandler } from '../src/runtime/review-ui.mjs';
 import { insertRow } from '../src/storage/repositories.mjs';
-import { createTestContext, makeCandidate, makeObservation, mutableClock } from './helpers/fixtures.mjs';
+import { createTestContext, makeCandidate, makeMemory, makeObservation, mutableClock } from './helpers/fixtures.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const CODE = fs.readFileSync(path.join(ROOT, 'client.js'), 'utf8');
@@ -279,5 +279,61 @@ test('P6/UI: the 候选 tab renders an empty state', async () => {
     assert.ok(textOf(list).includes('还没有待审候选'), 'the empty state is explicit');
   } finally {
     mounted.restore();
+  }
+});
+
+test('P6/UI: real host shape (thunk handles) serves all three lists from a real DB', (t) => {
+  const ctx = createTestContext({ clock: mutableClock().clock });
+  t.after(() => ctx.cleanup());
+  seed(ctx, '主人不吃香菜');
+
+  // pending-due: a memory plus its due_queue row
+  const observation = makeObservation(ctx, { text: '周五前交报告', messageSeq: 77 });
+  insertRow(ctx.main, 'observations', observation);
+  const candidate = makeCandidate(ctx, observation, { businessKey: 'rev-due', text: '周五前交报告' });
+  insertRow(ctx.main, 'candidates', candidate);
+  const dueMemory = makeMemory(ctx, candidate, { businessKey: 'rev-due-mem', dueState: 'pending-due' });
+  insertRow(ctx.main, 'memories', dueMemory);
+  const at = ctx.clock.at().at;
+  insertRow(ctx.main, 'due_queue', {
+    memory_id: dueMemory.id,
+    due_state: 'pending-due',
+    enqueued_seq: 1,
+    enqueued_at: at,
+    opened_at: null,
+    deadline_at: null,
+    revision: 3,
+    reason: 'fixture',
+  });
+
+  // one dream in the dream store
+  insertRow(ctx.dream, 'dreams', {
+    id: 'drm_fixture_1',
+    idempotency_key: 'drm-fixture-1',
+    at,
+    payload_hash: 'hash-fixture-1',
+    linked_ids: '[]',
+    basis: '白天想到的',
+    idea: '梦里记得主人在改记忆面板',
+    origin: 'dream:fixture',
+    author_runtime: JSON.stringify({ role: 'dream', identity: 'fixture', sessionId: 'fixture', callId: 'c1' }),
+    state_snapshot: '{}',
+    initial_strength: 0.5,
+  });
+
+  // index.mjs passes thunks, not handles — the shape that broke 0.3.3 on the real host.
+  const handler = createReviewHandler({
+    main: () => ctx.main,
+    control: () => ctx.control,
+    dream: () => ctx.dream,
+    clock: ctx.clock,
+  });
+
+  for (const kind of ['candidate', 'pending', 'dream']) {
+    const res = fakeRes();
+    handler(fakeReq({ url: '/dsh-memsys/api/review?kind=' + kind, headers: { host: '127.0.0.1:50478' } }), res);
+    assert.equal(res.statusCode, 200, kind + ' should answer 200');
+    const body = res.json();
+    assert.ok(Array.isArray(body.items) && body.items.length >= 1, kind + ' should list its row');
   }
 });

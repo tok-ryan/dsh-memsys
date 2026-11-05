@@ -46,12 +46,12 @@ export function listPending(main, clock, { limit = LIMIT_DEFAULT, offset = 0 } =
   const entries = (result.entries ?? result.items ?? [])
     .filter((entry) => entry.status === 'pending-due' || entry.status === 'shelved-due')
     .map((entry) => {
-      const queue = main.prepare('SELECT revision, due_at, enqueued_at FROM due_queue WHERE memory_id = ?').get(entry.object_id) ?? {};
+      const queue = main.prepare('SELECT revision, deadline_at, enqueued_at FROM due_queue WHERE memory_id = ?').get(entry.object_id) ?? {};
       return {
         id: entry.object_id,
         text: entry.text ?? '',
         due_state: entry.status,
-        due_at: queue.due_at ?? entry.deadline ?? null,
+        due_at: queue.deadline_at ?? entry.deadline ?? null,
         enqueued_at: queue.enqueued_at ?? null,
         revision: Number(queue.revision ?? 0),
         // done/dropped exist; 延后 does not (the command set has no postpone).
@@ -155,6 +155,11 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
     res.setHeader('cache-control', 'no-store');
     res.end(JSON.stringify(payload));
   };
+  // index.mjs passes thunks so a route can stay lazy; the read/write layers take
+  // real handles. Resolve once per request — a thunk here was the 0.3.3 bug that
+  // turned every list into read_error on the real host.
+  const handle = (value) => (typeof value === 'function' ? value() : value);
+  const depsOf = () => ({ main: handle(main), control: handle(control), dream: handle(dream), clock });
   const parse = (url) => {
     const raw = String(url ?? '');
     const index = raw.indexOf('?');
@@ -215,12 +220,13 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
     const limit = Math.min(LIMIT_MAX, Math.max(1, Number(params.get('limit')) || LIMIT_DEFAULT));
     const offset = Math.max(0, Number(params.get('offset')) || 0);
     try {
+      const deps = depsOf();
       const result = kind === 'candidate'
-        ? listCandidates(main, clock, { limit, offset })
+        ? listCandidates(deps.main, clock, { limit, offset })
         : kind === 'pending'
-          ? listPending(main, clock, { limit, offset })
+          ? listPending(deps.main, clock, { limit, offset })
           : kind === 'dream'
-            ? listDreams(dream, clock, { limit, offset })
+            ? listDreams(deps.dream, clock, { limit, offset })
             : { status: 'error', code: 'invalid_kind' };
       if (result.status !== 'ok') { send(res, 400, { error: result.code ?? 'review_unavailable' }); return; }
       send(res, 200, { kind, total: result.total, items: result.items });
