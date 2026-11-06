@@ -79,6 +79,31 @@ export function listDreams(dream, clock, { limit = LIMIT_DEFAULT, offset = 0 } =
 }
 
 /**
+ * "自动通过" audit view: closed review rows whose candidate was auto-promoted.
+ * Only rows whose memory is still active are listed — once the owner revokes it
+ * the memory replays to `retired` and the row drops out of this list, while the
+ * queue row itself stays in the database as audit evidence.
+ */
+export function listAutoPromoted(main, clock, { limit = LIMIT_DEFAULT, offset = 0 } = {}) {
+  const result = reviewGet({ main, clock, kind: 'auto-promoted' });
+  if (result.status !== 'ok') return { status: 'error', code: result.code ?? 'review_unavailable' };
+  const entries = (result.entries ?? result.items ?? [])
+    .filter((entry) => entry.status === 'auto-promoted' && entry.memory_id)
+    .map((entry) => ({
+      id: entry.id,
+      memory_id: entry.memory_id,
+      text: entry.text ?? '',
+      type: entry.type ?? null,
+      recorded_at: entry.promoted_at ?? entry.closed_at ?? null,
+      closed_at: entry.closed_at ?? null,
+      close_reason: entry.close_reason ?? 'auto-promoted',
+      status: entry.status,
+      actions: ['revoke'],
+    }));
+  return { status: 'ok', total: entries.length, items: slicePage(entries, offset, limit) };
+}
+
+/**
  * Owner actions for a due item, routed through the existing command handler.
  * `confirm` = due-confirm (pending-due -> open) then due-done done;
  * `shelve`  = the same confirm, then due-done dropped;
@@ -169,6 +194,35 @@ export function applyCandidateAction({ main, control, clock }, { id, action, rea
   };
 }
 
+/**
+ * Owner revoke of one auto-promoted memory. There is exactly one action here:
+ * `revoke` goes through the core's demote -> retired path, so the memory row and
+ * the closed review_queue audit row both stay; only the effective state changes.
+ */
+export function applyAutoPromotedAction(deps, { memoryId, action, reason = null }) {
+  if (action !== 'revoke') {
+    return { ok: false, code: 'unknown_action', action, message: '自动通过只有"撤销"一个动作。' };
+  }
+  const revoke = candidateWrites.revokeAutoPromotedMemory;
+  if (typeof revoke !== 'function') {
+    return {
+      ok: false,
+      code: 'owner_candidate_action_unavailable',
+      reason: 'no_revoke_channel',
+      message: '核心还没有导出 revokeAutoPromotedMemory；上层不能伪造撤销。',
+      memoryId,
+      action,
+    };
+  }
+  const ownerRuntime = {
+    role: 'owner',
+    identity: 'owner-ui',
+    sessionId: 'owner-ui',
+    callId: `ui-revoke-${Date.now()}`,
+  };
+  return revoke(ownerRuntime, memoryId, reason ?? null, { main: deps.main, clock: deps.clock });
+}
+
 /** GET/POST /dsh-memsys/api/review — same loopback + same-origin gate as summary. */
 export function createReviewHandler({ main, control = null, dream, clock, logger = console } = {}) {
   const send = (res, status, payload) => {
@@ -214,14 +268,16 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
         const kind = String(parsed?.kind ?? '');
         const id = String(parsed?.id ?? '');
         const action = String(parsed?.action ?? '');
-        if (!['candidate', 'pending'].includes(kind)) { send(res, 400, { error: 'invalid_kind' }); return; }
+        if (!['candidate', 'pending', 'auto-promoted'].includes(kind)) { send(res, 400, { error: 'invalid_kind' }); return; }
         if (!id) { send(res, 400, { error: 'empty_id' }); return; }
         if (!action) { send(res, 400, { error: 'empty_action' }); return; }
         try {
           const deps = depsOf();
           const result = kind === 'pending'
             ? applyPendingAction(deps, { id, action, revision: Number(parsed.revision) })
-            : applyCandidateAction(deps, { id, action, reason: parsed.reason ?? null, baseRevision: parsed.baseRevision ?? null });
+            : kind === 'auto-promoted'
+              ? applyAutoPromotedAction(deps, { memoryId: id, action, reason: parsed.reason ?? null })
+              : applyCandidateAction(deps, { id, action, reason: parsed.reason ?? null, baseRevision: parsed.baseRevision ?? null });
           const ok = result?.ok !== false && result?.status !== 'error';
           send(res, ok ? 200 : 409, { ok, kind, id, action, result });
         } catch (err) {
@@ -230,11 +286,15 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
             ? 409
             : code === 'candidate_missing'
               ? 404
-              : code === 'validation_error'
-                ? 400
-                : code === 'candidate_not_pending'
+              : code === 'memory_missing'
+                ? 404
+                : code === 'invalid_transition'
                   ? 409
-                  : 500;
+                  : code === 'validation_error'
+                    ? 400
+                    : code === 'candidate_not_pending'
+                      ? 409
+                      : 500;
           send(res, status, {
             ok: false,
             error: code,
@@ -257,9 +317,11 @@ export function createReviewHandler({ main, control = null, dream, clock, logger
         ? listCandidates(deps.main, clock, { limit, offset })
         : kind === 'pending'
           ? listPending(deps.main, clock, { limit, offset })
-          : kind === 'dream'
-            ? listDreams(deps.dream, clock, { limit, offset })
-            : { status: 'error', code: 'invalid_kind' };
+          : kind === 'auto-promoted'
+            ? listAutoPromoted(deps.main, clock, { limit, offset })
+            : kind === 'dream'
+              ? listDreams(deps.dream, clock, { limit, offset })
+              : { status: 'error', code: 'invalid_kind' };
       if (result.status !== 'ok') { send(res, 400, { error: result.code ?? 'review_unavailable' }); return; }
       send(res, 200, { kind, total: result.total, items: result.items });
     } catch (err) {

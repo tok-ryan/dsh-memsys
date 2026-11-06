@@ -448,6 +448,19 @@ window.__ModuleLoader__.load({
       const date = new Date(value);
       return `${date.getMonth() + 1}-${String(date.getDate()).padStart(2, '0')}`;
     }
+    // Audit rows carry a real timestamp (not just a day label) and a trimmed
+    // summary; both are plain text so the card never turns audit data into HTML.
+    function auditTime(stamp) {
+      const value = Date.parse(stamp);
+      if (!isFinite(value)) return '未知时间';
+      const date = new Date(value);
+      const pad = (part) => String(part).padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+    function auditSummary(text) {
+      const chars = Array.from(String(text ?? ''));
+      return chars.length > 80 ? chars.slice(0, 80).join('') + '…' : chars.join('');
+    }
     /** Palette only: the preview fixes every ball at 64px and one light rig. */
     function ballStyle(memory) {
       const palette = ballPalette(memory.type);
@@ -571,18 +584,21 @@ window.__ModuleLoader__.load({
     const TABS = [
       { key: 'memory', label: '记忆' },
       { key: 'candidate', label: '候选' },
+      { key: 'auto-promoted', label: '自动通过' },
       { key: 'pending', label: '惦记' },
       { key: 'dream', label: '梦' },
     ];
     const REVIEW = '/dsh-memsys/api/review';
     const REVIEW_EMPTY = {
       candidate: '还没有待审候选。',
+      'auto-promoted': '暂无自动通过的记录',
       pending: '还没有惦记。',
       dream: '还没有梦。',
     };
 
     const REVIEW_TABS = {
       candidate: { title: '候选', empty: '还没有待审候选。', source: '来源：模型提取' },
+      'auto-promoted': { title: '自动通过', empty: '暂无自动通过的记录', source: '来源：自动提升审计' },
       pending: { title: '惦记', empty: '还没有惦记。', source: '来源：主人原话' },
       dream: { title: '梦', empty: '还没有梦。', source: '来源：梦库' },
     };
@@ -607,6 +623,7 @@ window.__ModuleLoader__.load({
       const [tabItems, setTabItems] = React.useState(null);
       const [busy, setBusy] = React.useState('');
       const [actionNote, setActionNote] = React.useState({});
+      const [confirmId, setConfirmId] = React.useState(null);
       const [selectedId, setSelectedId] = React.useState(null);
       const [detail, setDetail] = React.useState(null);
       const [cardExpanded, setCardExpanded] = React.useState(false);
@@ -679,6 +696,7 @@ window.__ModuleLoader__.load({
         setPages({});
         setWall(0);
         setActionNote({});
+        setConfirmId(null);
         setTabItems(null);
         if (tab === 'memory') return undefined;
         let alive = true;
@@ -792,7 +810,10 @@ window.__ModuleLoader__.load({
         setActionNote((current) => ({ ...current, [row.id]: '' }));
         const payload = tab === 'pending'
           ? { kind: tab, id: row.id, action, revision: row.revision }
-          : { kind: tab, id: row.id, action, baseRevision: row.base_revision };
+          : tab === 'auto-promoted'
+            // Revoke is addressed by the promoted memory id, not the queue row.
+            ? { kind: tab, id: row.memory_id, action, reason: 'owner_revoked_auto_promoted' }
+            : { kind: tab, id: row.id, action, baseRevision: row.base_revision };
         fetch(REVIEW, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -814,6 +835,7 @@ window.__ModuleLoader__.load({
             }
             setSelectedId(null);
             setDetail(null);
+            setConfirmId(null);
             const reload = () => fetch(REVIEW + '?kind=' + tab)
               .then((response) => (response.ok ? response.json() : null))
               .then((data) => setTabItems(Array.isArray(data?.items) ? data.items : []))
@@ -947,6 +969,48 @@ window.__ModuleLoader__.load({
             onClick: () => step(1),
           }, '更旧 →')));
 
+      const audit = tab === 'auto-promoted'
+        ? h('div', { className: 'ms-audit', role: 'list', 'aria-label': '自动通过的记录', style: { marginTop: 4 } },
+          tabItems === null
+            ? h('p', { className: 'ms-muted' }, '读取中…')
+            : total === 0
+              ? h('p', { className: 'ms-muted' }, REVIEW_TABS['auto-promoted'].empty)
+              : tabItems.map((row) => {
+                const confirming = confirmId === row.id;
+                const revoking = busy === row.id + 'revoke';
+                return h('div', { key: row.id, className: 'ms-item', role: 'listitem' },
+                  h('div', { className: 'ms-item-head' },
+                    h('span', null, auditTime(row.recorded_at)),
+                    h('span', { className: 'ms-item-meta' }, 'memory_id: ' + row.memory_id)),
+                  h('p', { className: 'ms-item-text' }, auditSummary(row.text)),
+                  h('p', { className: 'ms-item-meta' }, 'close_reason: ' + row.close_reason),
+                  h('div', { className: 'ms-actions' },
+                    confirming
+                      ? [
+                        h('button', {
+                          key: 'confirm',
+                          type: 'button',
+                          className: 'ms-btn',
+                          disabled: revoking,
+                          onClick: () => act(row, 'revoke'),
+                        }, revoking ? '撤销中…' : '确认撤销'),
+                        h('button', {
+                          key: 'cancel',
+                          type: 'button',
+                          className: 'ms-btn',
+                          disabled: revoking,
+                          onClick: () => setConfirmId(null),
+                        }, '取消'),
+                      ]
+                      : h('button', {
+                        type: 'button',
+                        className: 'ms-btn',
+                        onClick: () => setConfirmId(row.id),
+                      }, '撤销')),
+                  actionNote[row.id] ? h('p', { className: 'ms-err' }, actionNote[row.id]) : null);
+              }))
+        : null;
+
       return h(
         'div',
         { className: 'ms-panel' },
@@ -956,7 +1020,9 @@ window.__ModuleLoader__.load({
           ? `记忆 ${total} 条 · 每面 ${HALL_SIZE} 条 · 候选 ${state.candidates} 条 · 待确认惦记 ${state.pending_due} 条`
           : tab === 'candidate'
             ? `候选 ${state.candidates ?? total} 条 · 待审 ${total} 条`
-            : tab === 'pending'
+            : tab === 'auto-promoted'
+              ? `自动通过 ${total} 条`
+              : tab === 'pending'
               ? `待确认 ${state.pending_due ?? total} 条 · 已到期 ${(tabItems ?? []).filter((item) => item.due_at && Date.parse(item.due_at) <= Date.now()).length} 条`
               : `梦境 ${total} 条`),
         tab === 'memory'
@@ -1026,16 +1092,18 @@ window.__ModuleLoader__.load({
           : null,
         query
           ? h(SearchResults, { query, openId: openResultId, onOpen: setOpenResultId })
-          : hall,
+          : tab === 'auto-promoted' ? audit : hall,
         query || !pageFailed
           ? null
           : h('p', { className: 'ms-muted' }, '这一面暂时读不出来，稍后再滚一次'),
         query
           ? null
-          : h('p', { className: 'ms-hint' },
-            total === 0
-              ? (tab === 'memory' ? '还没有记忆。去跟模型说一句「记住：…」吧' : '这一格里还没有东西')
-              : '点亮一颗球看内容，再点一次收起。'),
+          : tab === 'auto-promoted'
+            ? h('p', { className: 'ms-hint' }, '撤销只把这条记忆降为 retired：记忆行和这条审计记录都会保留。')
+            : h('p', { className: 'ms-hint' },
+              total === 0
+                ? (tab === 'memory' ? '还没有记忆。去跟模型说一句「记住：…」吧' : '这一格里还没有东西')
+                : '点亮一颗球看内容，再点一次收起。'),
       );
     }
 
