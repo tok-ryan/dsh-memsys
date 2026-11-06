@@ -24,12 +24,14 @@ import {
   assertDailyRuntime,
   assertNoForbiddenFields,
   assertOwnPendingCandidate,
+  assertOwnerRuntime,
   modelOrigin,
   stripAuditTimes,
 } from './authority.mjs';
 import { composeCandidateOrigin, credibilityOf } from './origin.mjs';
 import { candidateEntityId, resolveTopic, unresolvedTopicKey } from './topic.mjs';
 import { promoteInTransaction } from './promote.mjs';
+import { replayMain } from '../storage/replay.mjs';
 import { revalidateReceipt, verifyReceiptBound } from './owner-actions.mjs';
 import { createNeedsReview } from './judgment-review.mjs';
 
@@ -224,7 +226,27 @@ function evidenceRowsForCandidate(candidateId, evidenceRefs, at) {
   }));
 }
 
-function reviewQueueRow({ kind, objectId: target, policy, deadlineAt, inputSeq, at, status = 'open' }) {
+const AUTO_PROMOTED_TAG = 'auto-promoted';
+const AUTO_PROMOTED_REASON = 'auto-promoted';
+
+function parseTags(value) {
+  try {
+    const parsed = JSON.parse(value ?? '[]');
+    return Array.isArray(parsed) ? parsed.filter((tag) => typeof tag === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function markAutoPromoted(tagsText) {
+  return canonicalJson([...new Set([...parseTags(tagsText), AUTO_PROMOTED_TAG])]);
+}
+
+function isAutoPromoted(memory) {
+  return parseTags(memory?.tags).includes(AUTO_PROMOTED_TAG);
+}
+
+function reviewQueueRow({ kind, objectId: target, policy, deadlineAt, inputSeq, at, status = 'open', closeReason = null }) {
   return {
     id: objectId('rq', `${kind}:${target}:${inputSeq}`),
     object_kind: kind,
@@ -234,7 +256,7 @@ function reviewQueueRow({ kind, objectId: target, policy, deadlineAt, inputSeq, 
     deadline_at: deadlineAt,
     created_input_seq: inputSeq,
     status,
-    close_reason: null,
+    close_reason: closeReason,
     created_at: at,
     updated_at: at,
   };
@@ -351,6 +373,9 @@ function recordOne(runtime, item, request, deps, index) {
         status: 'found',
         replayed: true,
         readback: memory ? 'memory' : 'candidate',
+        promoted: Boolean(memory),
+        auto_promoted: isAutoPromoted(memory),
+        memory_id: memory?.id ?? null,
       };
     }
 
@@ -430,6 +455,10 @@ function recordOne(runtime, item, request, deps, index) {
       targetIds: [candidate.id, observationId],
       hooks: deps.commitHooks ?? {},
     };
+
+    // Set only by the first-statement auto-promote branch; the receipt still
+    // decides whether the caller may see it as promoted.
+    let autoPromotedMemoryId = null;
 
     const writeTxn = () =>
       withImmediate(main, () => {
@@ -544,6 +573,9 @@ function recordOne(runtime, item, request, deps, index) {
         } else if (status === 'pending' && existingMemories.length === 0) {
           // Complete candidate without a permission action: promote directly
           // (unresolved keys stay ungrouped; resolved first statements promote).
+          // Explicit by design: the audit row says why it closed, the memory is
+          // tagged `auto-promoted`, and the caller gets memory_id back so the
+          // owner can find (and revoke) it instead of it vanishing into facts.
           insertReviewQueue(
             main,
             reviewQueueRow({
@@ -554,16 +586,28 @@ function recordOne(runtime, item, request, deps, index) {
               inputSeq,
               at,
               status: 'closed',
+              closeReason: AUTO_PROMOTED_REASON,
             }),
           );
-          withSavepoint(main, `promote_${candidate.id.slice(0, 12)}`, () =>
+          const promoted = withSavepoint(main, `promote_${candidate.id.slice(0, 12)}`, () =>
             promoteInTransaction(main, {
-              candidate,
+              candidate: { ...candidate, tags: markAutoPromoted(candidate.tags) },
               runtime,
               clock,
               hooks: deps.faultInjector?.promoteHooks ?? {},
             }),
           );
+          autoPromotedMemoryId = promoted?.memory?.id ?? null;
+          appendRelation(main, {
+            type: 'auto-promote',
+            payload: {
+              candidateId: candidate.id,
+              memoryId: autoPromotedMemoryId,
+              reason: 'first_statement',
+            },
+            businessKey: `${candidate.id}:auto-promote`,
+            at,
+          });
         } else {
           insertReviewQueue(
             main,
@@ -592,6 +636,10 @@ function recordOne(runtime, item, request, deps, index) {
     };
 
     const receipt = commitControlled({ control, clock, spec, writeTxn, readExact });
+    const promotedMemory =
+      autoPromotedMemoryId !== null
+        ? main.prepare('SELECT * FROM memories WHERE id = ?').get(autoPromotedMemoryId) ?? null
+        : null;
     return {
       operation_id: request?.requestId ?? null,
       id: candidate.id,
@@ -601,6 +649,10 @@ function recordOne(runtime, item, request, deps, index) {
         status === 'conflicted' || expansion
           ? getReviewQueueByObject(main, 'pending', candidate.id)?.id ?? null
           : null,
+      // 显式化：首次陈述自动提升时告诉调用方真相，别再让它看起来像普通候选。
+      promoted: promotedMemory !== null,
+      auto_promoted: promotedMemory !== null,
+      memory_id: promotedMemory?.id ?? null,
       error: receipt.status === 'found' ? null : receipt.readback?.reason ?? 'readback_not_found',
       detail: receipt.status === 'found' ? null : receipt.readback?.error ?? null,
       failures: receipt.consecutiveFailures,
@@ -835,5 +887,47 @@ export function approveSceneExpansion(deps, { receiptId, candidateId }) {
     payloadVersion: '2',
     });
     return { ok: true, candidateId };
+  });
+}
+
+/**
+ * Owner-side revoke of one auto-promoted memory.
+ *
+ * Uses the existing state machine instead of deleting anything: appending a
+ * `demote` relation makes replay fold the memory to `retired` (context selection
+ * and quiz stop using it), while the memory row and the `review_queue` audit row
+ * both stay in place. Idempotent: a second call reports `replayed`.
+ *
+ * Only memories tagged `auto-promoted` are revocable here — a manually reviewed
+ * memory keeps its normal owner-action path.
+ */
+export function revokeAutoPromotedMemory(runtime, memoryId, reason, deps) {
+  assertOwnerRuntime(runtime);
+  const { main, clock } = deps;
+  return withImmediate(main, () => {
+    const memory = main.prepare('SELECT * FROM memories WHERE id = ?').get(memoryId) ?? null;
+    if (!memory) throw new WriteError('memory_missing', { memoryId });
+    if (!isAutoPromoted(memory)) {
+      throw new WriteError('invalid_transition', { reason: 'not_auto_promoted', memoryId });
+    }
+    const state = replayMain(main).memories.get(memoryId) ?? 'active';
+    if (state === 'retired') {
+      return { status: 'found', replayed: true, memory_id: memoryId, state: 'retired', review_queue: 'preserved' };
+    }
+    const at = clock.at().at;
+    const why = reason ?? 'owner_revoked_auto_promoted';
+    appendRelation(main, {
+      type: 'demote',
+      payload: {
+        targetId: memoryId,
+        memoryId,
+        by: runtime.role,
+        reason: why,
+        source: AUTO_PROMOTED_TAG,
+      },
+      businessKey: `${memoryId}:${why}`,
+      at,
+    });
+    return { status: 'found', replayed: false, memory_id: memoryId, state: 'retired', review_queue: 'preserved' };
   });
 }

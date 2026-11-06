@@ -6,7 +6,7 @@ DeepSeek Harness 的长期记忆插件。事实只追加，候选可审，判断
 
 ## 特性
 
-- **可审写入**：模型只能提交候选；记忆由候选提升产生，不能直接落事实。
+- **可审写入**：模型只能提交候选；记忆由候选提升产生，不能直接落事实。**首次陈述是显式的例外**：该话题下还没有任何记忆时，候选会自动提升，但 `memsys_record` 会返回 `promoted: true` / `auto_promoted: true` / `memory_id`，记忆带 `auto-promoted` 标签，`review_queue` 留一条 `closed` 审计行（`close_reason: "auto-promoted"`），主人可以一键撤销（走 `demote` 状态机，不物理删除）。
 - **三库分离**：主库（事实/候选/记忆/证据/关系）、控制库（操作/尝试/编译/快照/容量）、梦库。
 - **可靠提交**：预扣、写后读回、最多一次即时补写、连续失败冻结、跨重启恢复。
 - **按预算注入**：支持 full / compressed / grouped / protected_overflow 四种交付级别，快照分页可续。
@@ -78,7 +78,7 @@ dsh --profile <profile> --dump-config
 |---|---|
 | `memsys_get` | 按 id 读取记忆、证据、时间线，支持历史视图 |
 | `memsys_search` | 关键词 / 场景 / 主题 / 时间检索 |
-| `memsys_review_get` | 候选、待审、惦记历史、已确认梦境 |
+| `memsys_review_get` | 候选、待审、惦记历史、已确认梦境，以及 `auto-promoted`（自动通过审计 + 撤销线索） |
 | `memsys_context_get` | 展开冻结上下文快照中的一个分组 |
 | `memsys_project_get` | 项目概览与版本历史 |
 | `memsys_self_get` | 自述、判断、推测 |
@@ -87,6 +87,8 @@ dsh --profile <profile> --dump-config
 | `memsys_organize` | 精确合并或取代提案 |
 | `memsys_feed` | 信息流筛选（需要对应 provider） |
 | `memsys_quiz` | 复习考试：`pick` 出复述题 / `challenge` 出辨伪题 / `submit` 交卷判分 / `status` 看进度 |
+
+**id 契约**：`cand_*` 是候选 id，只在 `memsys_record` 的返回（以及 `memsys_review_get` 的候选条目）里出现；候选项提升后，原 `cand_*` id 在 `memsys_get` 里会进 `missing_ids`，这是**预期行为，不是数据丢失**——请用返回的 `memory_id`（`mem_*`）或 `memsys_search` 读取/检索。自动通过的记录用 `memsys_review_get(kind: "auto-promoted")` 查看（含 `memory_id` 与 `revoke` 线索）；owner 通道用 `revokeAutoPromotedMemory()` 撤销。
 
 复习考试的一条完整回合：
 
@@ -123,7 +125,7 @@ memsys_quiz { mode: "status" }                     # 考过 N 条 / 平均分 / 
 ## 数据与备份
 
 - 默认目录：`~/.dsh/memsys`（可用 `MEMSYS_DATA_DIR` 或显式 `data_dir` 覆盖）。
-- `aliases.json`（可选）：私人别名表，形如 `[{"triggers":["创作线"],"adds":["钢铁黎明","civ-evo"]}]`；
+- `aliases.json`（可选）：私人别名表，形如 `[{"triggers":["花费"],"adds":["成本","预算"]}]`；
   只从数据目录读、**不进 npm 包**，用于把口语问句映射到记忆里的写法。
 - `memsys.db`：业务事实与证据，以及 `quiz_state` / `quiz_attempts`。
 - `control.db`：操作账、编译快照、容量与恢复。
@@ -143,6 +145,8 @@ npm run build
 ## 设计边界
 
 - 模型不能直接写记忆，只能提交候选；确认与裁决属于主人侧动作。
+- 首次陈述的自动提升**不是静默写入**：返回字段、记忆 `auto-promoted` 标签、`review_queue` 的 `closed` 审计行三处可见；撤销只追加 `demote` 关系（记忆转入 `retired`），不删记忆行、不删审计行。
+- 候选 id（`cand_*`）不参与 `memsys_get` 查找，这是候选/记忆分离的契约；提升后一律用 `memory_id`。
 - 复习考试不改记忆、不加 uses、不改任何裁决字段；陈旧说法（corrected / superseded）默认不进题源。
 - 人格只有主人能改；旧版本只追加不覆盖。
 - 没有宿主回执时，交付状态保持 `unknown`，不假装已投递。

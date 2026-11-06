@@ -1,3 +1,4 @@
+import { replayMain } from '../storage/replay.mjs';
 import { pageText } from './pager.mjs';
 
 const DEFAULT_MAX_CHARS = 8000;
@@ -92,6 +93,51 @@ function needsReviewEntries(main) {
     }));
 }
 
+/**
+ * Closed review rows whose candidate was promoted without a review are audit
+ * evidence, not a lost submission: this view surfaces them so the owner can see
+ * what was auto-passed and revoke an auto-promoted memory if it was wrong.
+ */
+function autoPromotedEntry(main, queue) {
+  const candidate = main.prepare('SELECT * FROM candidates WHERE id = ?').get(queue.object_id);
+  if (!candidate) return null;
+  const memory = main.prepare('SELECT id FROM memories WHERE promoted_from = ?').get(candidate.id) ?? null;
+  const state = memory ? replayMain(main).memories.get(memory.id) ?? 'active' : null;
+  return {
+    id: queue.id,
+    kind: 'auto-promoted',
+    object_id: candidate.id,
+    memory_id: memory?.id ?? null,
+    text: candidate.text,
+    why: candidate.why,
+    type: candidate.type,
+    status: state === 'retired' ? 'revoked' : state === null ? 'memory_missing' : 'auto-promoted',
+    memory_state: state,
+    promoted_at: candidate.promoted_at,
+    closed_at: queue.updated_at,
+    close_reason: queue.close_reason,
+    actions: state === 'active' ? ['revoke'] : [],
+  };
+}
+
+function autoPromotedEntries(main) {
+  return main
+    .prepare(
+      `SELECT * FROM review_queue
+       WHERE object_kind = 'candidate' AND status = 'closed' AND close_reason = 'auto-promoted'
+       ORDER BY created_input_seq ASC, id ASC`,
+    )
+    .all()
+    .map((queue) => autoPromotedEntry(main, queue))
+    .filter(Boolean);
+}
+
+function entryForQueue(main, queue) {
+  if (queue.object_kind === 'pending') return pendingEntries(main, queue);
+  if (queue.close_reason === 'auto-promoted') return autoPromotedEntry(main, queue);
+  return candidateEntries(main, queue);
+}
+
 function dueHistoryEntries(main) {
   return main
     .prepare(
@@ -128,7 +174,7 @@ export function reviewGet({ main, clock, ids = null, kind = null, cursor = null,
     if (!Array.isArray(ids) || ids.length < 1 || ids.length > 10) {
       return { status: 'error', code: 'validation_error', message: 'ids_must_be_1_to_10', clock: reading };
     }
-  } else if (!['candidate', 'pending', 'due-history', 'needs-review'].includes(kind)) {
+  } else if (!['candidate', 'pending', 'due-history', 'needs-review', 'auto-promoted'].includes(kind)) {
     return { status: 'error', code: 'validation_error', message: 'invalid_kind', clock: reading };
   }
 
@@ -138,11 +184,11 @@ export function reviewGet({ main, clock, ids = null, kind = null, cursor = null,
       entries = dueHistoryEntries(main);
     } else if (kind === 'needs-review') {
       entries = needsReviewEntries(main);
+    } else if (kind === 'auto-promoted') {
+      entries = autoPromotedEntries(main);
     } else if (ids !== null) {
       const queues = ids.map((id) => main.prepare('SELECT * FROM review_queue WHERE id = ?').get(id)).filter(Boolean);
-      entries = queues
-        .map((queue) => (queue.object_kind === 'pending' ? pendingEntries(main, queue) : candidateEntries(main, queue)))
-        .filter(Boolean);
+      entries = queues.map((queue) => entryForQueue(main, queue)).filter(Boolean);
     } else {
       const queues = main
         .prepare("SELECT * FROM review_queue WHERE status = 'open' AND object_kind = ? ORDER BY created_input_seq, id")

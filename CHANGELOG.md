@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.2
+
+### Fixed
+
+- **首次陈述的自动提升不再"静默"**（候选页签长期为空的根因）。`memsys_record(kind=candidate)`
+  对该话题首次陈述仍自动提升，但三处可见：返回体带 `promoted` / `auto_promoted` / `memory_id`；
+  记忆带 `auto-promoted` 标签；`review_queue` 的 `closed` 审计行写 `close_reason: "auto-promoted"`
+  （审计记录保留，不删）。新增 owner 侧 `revokeAutoPromotedMemory()`：追加 `demote` 关系让记忆转入
+  `retired`，不物理删除，审计行原样保留、可重复调用（幂等）。新增
+  `memsys_review_get(kind="auto-promoted")`，供 UI 渲染「自动通过」列表（含 `memory_id` 与撤销线索）。
+- **候选/记忆 id 契约写进工具描述与 README**：`memsys_get(cand_*)` 返回 `missing_ids` 是预期行为，
+  提升后请用 `memsys_record` 返回的 `memory_id` 或 `memsys_search` 检索（候选 id 不参与 get 查找）。
+
 ## 0.3.1
 
 ### Added

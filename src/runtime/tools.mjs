@@ -36,7 +36,8 @@ export const TOOL_SPECS = Object.freeze({
     },
   },
   memsys_get: {
-    description: 'Read memory items by explicit ids (current or history), with evidence and timeline.',
+    description:
+      'Read memory items by explicit ids (current or history), with evidence and timeline. Takes memory ids only: candidate ids (cand_*) exist only in the memsys_record result and then show up in missing_ids by design — use that result\'s memory_id or memsys_search instead.',
     parameters: {
       ids: P('array', 'Memory ids, 1 to 10', { items: { type: 'string' } }),
       view: P('string', 'current or history', { enum: ['current', 'history'] }),
@@ -67,11 +68,12 @@ export const TOOL_SPECS = Object.freeze({
     },
   },
   memsys_review_get: {
-    description: 'Read candidates, needs-review items, due history, or confirmed dreams.',
+    description:
+      'Read candidates, needs-review items, due history, auto-promoted audit entries (closed review rows with revoke hint), or confirmed dreams.',
     parameters: {
       ids: P('array', 'Object ids', { items: { type: 'string' } }),
-      kind: P('string', 'candidate, pending, needs-review, due-history or dream', {
-        enum: ['candidate', 'pending', 'needs-review', 'due-history', 'dream'],
+      kind: P('string', 'candidate, pending, needs-review, due-history, auto-promoted or dream', {
+        enum: ['candidate', 'pending', 'needs-review', 'due-history', 'auto-promoted', 'dream'],
       }),
       cursor: P('string', 'Pagination cursor'),
       max_chars: P('number', 'Characters per page, 1000..16000'),
@@ -97,7 +99,8 @@ export const TOOL_SPECS = Object.freeze({
     },
   },
   memsys_record: {
-    description: 'Record candidates, judgments, self notes, project updates or owner-action proposals.',
+    description:
+      'Record candidates, judgments, self notes, project updates or owner-action proposals. A candidate that is the first statement on its topic is auto-promoted: that item result carries promoted, auto_promoted and memory_id, and the memory is tagged "auto-promoted" (owner-revocable; the closed review row stays as audit).',
     parameters: {
       kind: P('string', 'Record kind (validated by the service)', { required: true }),
       request_id: P('string', 'Stable request id (runtime may override)'),
