@@ -8,3 +8,6 @@ test-data/
 _build/
 .DS_Store
 Thumbs.db
+
+# pack artifacts
+*.tgz
